@@ -31,7 +31,8 @@ namespace HM
 {
 
    IMAPCommandAppend::IMAPCommandAppend() :
-      bytes_left_to_receive_(0)
+      bytes_left_to_receive_(0),
+      destination_selectable_(false)
    {
    }
 
@@ -68,6 +69,7 @@ namespace HM
       // Reset these two so we don't re-use old values.
       flags_to_set_ = "";
       create_time_to_set_ = "";
+      destination_selectable_ = false;
 
       std::shared_ptr<IMAPSimpleCommandParser> pParser = std::shared_ptr<IMAPSimpleCommandParser>(new IMAPSimpleCommandParser());
 
@@ -135,6 +137,8 @@ namespace HM
       destination_folder_ = pConnection->GetFolderByFullPath(sFolderName);
       if (!destination_folder_)
          return IMAPResult(IMAPResult::ResultNo, "[TRYCREATE] Folder could not be found.");
+
+      destination_selectable_ = pConnection->CheckPermission(destination_folder_, ACLPermission::PermissionRead);
 
       if (!destination_folder_->IsPublicFolder())
       {
@@ -301,7 +305,22 @@ namespace HM
       }
 
       // Send the OK response to the client.
-      sResponse += current_tag_ + " OK APPEND completed\r\n";
+      String completion_line = current_tag_ + " OK";
+
+      if (destination_selectable_ && destination_folder_ && current_message_)
+      {
+         unsigned int assigned_uid = current_message_->GetUID();
+         if (assigned_uid > 0)
+         {
+            int uid_validity = destination_folder_->GetCreationTime().ToInt();
+            String uid_info;
+            uid_info.Format(_T(" [APPENDUID %d %u]"), uid_validity, assigned_uid);
+            completion_line += uid_info;
+         }
+      }
+
+      completion_line += " APPEND completed\r\n";
+      sResponse += completion_line;
       pConnection->SendAsciiData(sResponse);
 
       // Notify the mailbox notifier that the mailbox contents have changed. 
@@ -311,6 +330,7 @@ namespace HM
 
       destination_folder_.reset();
       current_message_.reset();
+      destination_selectable_ = false;
    }
 
    int 

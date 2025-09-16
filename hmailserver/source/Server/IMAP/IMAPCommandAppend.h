@@ -41,8 +41,9 @@ namespace HM
       ByteBuffer append_buffer_;
       std::shared_ptr<IMAPFolder> destination_folder_;
       std::shared_ptr<Message> current_message_;
+      bool destination_selectable_;
 
-      
+
    };
 
 }

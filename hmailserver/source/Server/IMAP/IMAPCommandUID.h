@@ -22,6 +22,9 @@ namespace HM
       
       
       std::shared_ptr<HM::IMAPCommandRangeAction> command_;
+      IMAPResult UIDExpunge_(std::shared_ptr<IMAPConnection> pConnection, std::shared_ptr<IMAPCommandArgument> pArgument, const String &sequence_set);
+      static bool UIDMatchesSequence_(unsigned int uid, const std::vector<String> &sequence_parts, unsigned int highest_uid);
+      static unsigned int ParseUIDValue_(String value, unsigned int highest_uid);
    };
 
 }
