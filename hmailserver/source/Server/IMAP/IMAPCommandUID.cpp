@@ -294,7 +294,7 @@ namespace HM
             unsigned int end_value = ParseUIDValue_(end_part, highest_uid);
 
             if (end_part.IsEmpty())
-               end_value = start_value;
+               end_value = highest_uid;
 
             unsigned int lower = start_value;
             unsigned int upper = end_value;
