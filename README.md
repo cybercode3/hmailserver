@@ -3,24 +3,10 @@ hMailServer
 
 hMailServer is an open source email server for Microsoft Windows.
 
-This page describes how to compile and run hMailServer in debug. 
-
-For other information about hMailServer, please go to http://www.hmailserver.com
-
-No active development
-=====================
-
-hMailServer is no longer being actively developed or maintained. The latest major version was released several years ago. hMailServer relies on algorithms which are considered insecure by modern standards, such as SHA1 and outdated versions of OpenSSL. For that reason, it's recommended that you migrate to an alternative software or service.
+_This is a fork of hMailServer._ There’s no guarantee of active development, but anyone is welcome to use it if they find it helpful.
 
 Building hMailServer
 ====================
-
-Branches
---------
-
-   * The master branch contains the latest development version of hMailServer. This version is typically not yet released for production usage. If you want to add new features to hMailServer, use this branch.
-   
-   * The x.y.z (for example 5.6.2) contains the code for the version with the same name as the branch. For example, branch 5.6.1 contains hMailServer version 5.6.1. These branches are typically only used for bugfixes or minor features.
 
 Environment set up
 ---------------------
