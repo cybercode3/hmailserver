@@ -21,6 +21,10 @@ namespace HM
 
       bool GetCopyUIDResponse(String &response) const;
 
+      __int64 GetLastDestinationMessageID() const { return last_destination_message_id_; }
+      void ClearLastDestinationMessageID() { last_destination_message_id_ = 0; }
+      std::shared_ptr<IMAPFolder> GetDestinationFolder() const { return destination_folder_; }
+
 
    private:
       String BuildUidSetString_(const std::vector<unsigned int> &uids) const;
@@ -29,6 +33,7 @@ namespace HM
       bool destination_selectable_;
       std::vector<unsigned int> source_uids_;
       std::vector<unsigned int> destination_uids_;
+      __int64 last_destination_message_id_;
 
    };
 }

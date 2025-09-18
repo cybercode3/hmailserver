@@ -20,6 +20,7 @@
 #include "IMAPCommandList.h"
 #include "IMAPCommandLsub.h"
 #include "IMAPCommandCopy.h"
+#include "IMAPCommandMove.h"
 #include "IMAPCommandFetch.h"
 #include "IMAPCommandCapability.h"
 #include "IMAPCommandStore.h"
@@ -62,6 +63,7 @@ namespace HM
       mapCommandHandlers[IMAPConnection::IMAP_LIST] = std::shared_ptr<IMAPCommandLIST>(new IMAPCommandLIST());
       mapCommandHandlers[IMAPConnection::IMAP_LSUB] = std::shared_ptr<IMAPCommandLSUB>(new IMAPCommandLSUB());
       mapCommandHandlers[IMAPConnection::IMAP_COPY] = std::shared_ptr<IMAPCommandCOPY>(new IMAPCommandCOPY());
+      mapCommandHandlers[IMAPConnection::IMAP_MOVE] = std::shared_ptr<IMAPCommandMOVE>(new IMAPCommandMOVE());
       mapCommandHandlers[IMAPConnection::IMAP_FETCH] = std::shared_ptr<IMAPCommandFETCH>(new IMAPCommandFETCH());
       mapCommandHandlers[IMAPConnection::IMAP_CAPABILITY] = std::shared_ptr<IMAPCommandCapability>(new IMAPCommandCapability());
       mapCommandHandlers[IMAPConnection::IMAP_STORE] = std::shared_ptr<IMAPCommandStore>(new IMAPCommandStore());

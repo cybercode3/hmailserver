@@ -567,6 +567,7 @@ xcopy /F /Y $(ProjectDir)..\..\..\..\libraries\libpq-12.2\x64\*.dll $(OutDir)
     <ClCompile Include="..\Imap\IMAPCommandCheck.cpp" />
     <ClCompile Include="..\Imap\IMAPCommandClose.cpp" />
     <ClCompile Include="..\Imap\IMAPCommandCopy.cpp" />
+    <ClCompile Include="..\Imap\IMAPCommandMove.cpp" />
     <ClCompile Include="..\Imap\IMAPCommandCreate.cpp" />
     <ClCompile Include="..\Imap\IMAPCommandDelete.cpp" />
     <ClCompile Include="..\IMAP\IMAPCommandDeleteAcl.cpp" />
@@ -598,6 +599,7 @@ xcopy /F /Y $(ProjectDir)..\..\..\..\libraries\libpq-12.2\x64\*.dll $(OutDir)
     <ClCompile Include="..\Imap\IMAPConfiguration.cpp" />
     <ClCompile Include="..\Imap\IMAPConnection.cpp" />
     <ClCompile Include="..\Imap\IMAPCopy.cpp" />
+    <ClCompile Include="..\Imap\IMAPMove.cpp" />
     <ClCompile Include="..\Imap\IMAPFetch.cpp" />
     <ClCompile Include="..\Imap\IMAPFetchParser.cpp" />
     <ClCompile Include="..\IMAP\IMAPFolderContainer.cpp" />
@@ -1068,6 +1070,7 @@ xcopy /F /Y $(ProjectDir)..\..\..\..\libraries\libpq-12.2\x64\*.dll $(OutDir)
     <ClInclude Include="..\Imap\IMAPCommandCheck.h" />
     <ClInclude Include="..\Imap\IMAPCommandClose.h" />
     <ClInclude Include="..\Imap\IMAPCommandCopy.h" />
+    <ClInclude Include="..\Imap\IMAPCommandMove.h" />
     <ClInclude Include="..\Imap\IMAPCommandCreate.h" />
     <ClInclude Include="..\Imap\IMAPCommandDelete.h" />
     <ClInclude Include="..\IMAP\IMAPCommandDeleteAcl.h" />
@@ -1099,6 +1102,7 @@ xcopy /F /Y $(ProjectDir)..\..\..\..\libraries\libpq-12.2\x64\*.dll $(OutDir)
     <ClInclude Include="..\Imap\IMAPConfiguration.h" />
     <ClInclude Include="..\Imap\IMAPConnection.h" />
     <ClInclude Include="..\Imap\IMAPCopy.h" />
+    <ClInclude Include="..\Imap\IMAPMove.h" />
     <ClInclude Include="..\Imap\IMAPFetch.h" />
     <ClInclude Include="..\Imap\IMAPFetchParser.h" />
     <ClInclude Include="..\IMAP\IMAPFolderContainer.h" />

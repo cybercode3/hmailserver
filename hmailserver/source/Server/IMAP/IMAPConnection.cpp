@@ -530,6 +530,8 @@ namespace HM
          return IMAP_STORE;
       else if (sCommand == _T("COPY"))
          return IMAP_COPY;
+      else if (sCommand == _T("MOVE"))
+         return IMAP_MOVE;
       else if (sCommand == _T("EXAMINE"))
          return IMAP_EXAMINE;
       else if (sCommand == _T("SEARCH"))
