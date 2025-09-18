@@ -23,7 +23,8 @@
 namespace HM
 {
    IMAPCopy::IMAPCopy() :
-      destination_selectable_(false)
+      destination_selectable_(false),
+      last_destination_message_id_(0)
    {
 
    }
@@ -32,6 +33,8 @@ namespace HM
    IMAPResult
    IMAPCopy::DoAction(std::shared_ptr<IMAPConnection> pConnection, int messageIndex, std::shared_ptr<Message> pOldMessage, const std::shared_ptr<IMAPCommandArgument> pArgument)
    {
+      last_destination_message_id_ = 0;
+
       if (!pArgument || !pOldMessage)
          return IMAPResult(IMAPResult::ResultBad, "Invalid parameters");
       
@@ -79,6 +82,8 @@ namespace HM
 
       if (!pNewMessage)
          return IMAPResult(IMAPResult::ResultBad, "Failed to copy message");
+
+      last_destination_message_id_ = pNewMessage->GetID();
 
       // Check if the user has access to set the Seen flag, otherwise 
       if (!pConnection->CheckPermission(pFolder, ACLPermission::PermissionWriteSeen))

@@ -9,6 +9,7 @@
 
 #include "IMAPFetch.h"
 #include "IMAPCopy.h"
+#include "IMAPMove.h"
 #include "IMAPStore.h"
 #include "IMAPCommandSearch.h"
 #include "MessagesContainer.h"
@@ -73,6 +74,13 @@ namespace HM
             return IMAPResult(IMAPResult::ResultBad, "Command requires at least 3 parameters.");
 
          command_ = std::shared_ptr<IMAPCopy>(new IMAPCopy());
+      }
+      else if (sTypeOfUID.CompareNoCase(_T("MOVE")) == 0)
+      {
+         if (pParser->WordCount() < 4)
+            return IMAPResult(IMAPResult::ResultBad, "Command requires at least 3 parameters.");
+
+         command_ = std::shared_ptr<IMAPMove>(new IMAPMove());
       }
       else if (sTypeOfUID.CompareNoCase(_T("STORE")) == 0)
       {
@@ -179,7 +187,11 @@ namespace HM
             }
          }
 
-         completion += " UID completed\r\n";
+         std::shared_ptr<IMAPMove> move_command = std::dynamic_pointer_cast<IMAPMove>(command_);
+         if (move_command)
+            completion += " UID MOVE completed\r\n";
+         else
+            completion += " UID completed\r\n";
          pConnection->SendAsciiData(completion);
       }
 
