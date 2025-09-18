@@ -30,7 +30,7 @@ namespace HM
    }
 
    IMAPResult
-   IMAPMove::EnsureSourcePermissions_(std::shared_ptr<IMAPConnection> pConnection)
+      IMAPMove::EnsureSourcePermissions_(std::shared_ptr<IMAPConnection> pConnection)
    {
       if (source_permissions_checked_)
          return IMAPResult();
@@ -53,7 +53,7 @@ namespace HM
    }
 
    IMAPResult
-   IMAPMove::DoAction(std::shared_ptr<IMAPConnection> pConnection, int messageIndex, std::shared_ptr<Message> pOldMessage, const std::shared_ptr<IMAPCommandArgument> pArgument)
+      IMAPMove::DoAction(std::shared_ptr<IMAPConnection> pConnection, int messageIndex, std::shared_ptr<Message> pOldMessage, const std::shared_ptr<IMAPCommandArgument> pArgument)
    {
       if (!pConnection || !pOldMessage)
          return IMAPResult(IMAPResult::ResultBad, "Invalid parameters");
@@ -79,15 +79,15 @@ namespace HM
 
       std::function<bool(int, std::shared_ptr<Message>)> filter =
          [&expunged_indexes, &expunged_message_ids, message_database_id](int index, std::shared_ptr<Message> message)
-      {
-         if (message->GetID() != message_database_id)
-            return false;
+         {
+            if (message->GetID() != message_database_id)
+               return false;
 
-         expunged_indexes.push_back(index);
-         expunged_message_ids.push_back(message->GetID());
+            expunged_indexes.push_back(index);
+            expunged_message_ids.push_back(message->GetID());
 
-         return true;
-      };
+            return true;
+         };
 
       messages->DeleteMessages(filter);
 
@@ -102,12 +102,12 @@ namespace HM
 
             std::function<bool(int, std::shared_ptr<Message>)> destination_filter =
                [destination_message_id](int /*index*/, std::shared_ptr<Message> message)
-            {
-               if (message->GetID() != destination_message_id)
-                  return false;
+               {
+                  if (message->GetID() != destination_message_id)
+                     return false;
 
-               return true;
-            };
+                  return true;
+               };
 
             destination_messages->DeleteMessages(destination_filter);
             MessagesContainer::Instance()->SetFolderNeedsRefresh(destination_folder->GetID());
@@ -133,7 +133,7 @@ namespace HM
 
       if (!expunged_message_ids.empty())
       {
-         auto &recent_messages = pConnection->GetRecentMessages();
+         auto& recent_messages = pConnection->GetRecentMessages();
          for (__int64 message_id : expunged_message_ids)
          {
             auto recent_it = recent_messages.find(message_id);
@@ -141,8 +141,14 @@ namespace HM
                recent_messages.erase(recent_it);
          }
 
+         // Notify using message IDs (not sequence numbers).
+         // Fixes E0289/C2665: ctor expects vector<__int64>.
          std::shared_ptr<ChangeNotification> notification =
-            std::shared_ptr<ChangeNotification>(new ChangeNotification(current_folder->GetAccountID(), current_folder->GetID(), ChangeNotification::NotificationMessageDeleted, expunged_indexes));
+            std::make_shared<ChangeNotification>(
+               current_folder->GetAccountID(),
+               current_folder->GetID(),
+               ChangeNotification::NotificationMessageDeleted,
+               expunged_message_ids);
 
          Application::Instance()->GetNotificationServer()->SendNotification(pConnection->GetNotificationClient(), notification);
       }
