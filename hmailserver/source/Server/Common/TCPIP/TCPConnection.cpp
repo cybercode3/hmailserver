@@ -26,13 +26,13 @@
 
 namespace HM
 {
-  
+
 
    TCPConnection::TCPConnection(ConnectionSecurity connection_security,
-                                boost::asio::io_service& io_service, 
-                                boost::asio::ssl::context& context,
-                                std::shared_ptr<Event> disconnected,
-                                AnsiString expected_remote_hostname) :
+      boost::asio::io_service& io_service,
+      boost::asio::ssl::context& context,
+      std::shared_ptr<Event> disconnected,
+      AnsiString expected_remote_hostname) :
       connection_security_(connection_security),
       socket_(io_service),
       ssl_socket_(socket_, context),
@@ -53,7 +53,7 @@ namespace HM
    {
       session_id_ = Application::Instance()->GetUniqueID();
       LOG_DEBUG("Pre-creating session " + StringParser::IntToString(session_id_));
-   
+
    }
 
    TCPConnection::~TCPConnection(void)
@@ -72,12 +72,12 @@ namespace HM
    }
 
    bool
-   TCPConnection::Connect(const AnsiString &remote_ip_address, long remotePort, const IPAddress &localAddress)
+      TCPConnection::Connect(const AnsiString& remote_ip_address, long remotePort, const IPAddress& localAddress)
    {
 #if _DEBUG
       if (!StringParser::IsValidIPAddress(remote_ip_address))
       {
-         ErrorManager::Instance()->ReportError(ErrorManager::High, 5506, "TCPConnection::Connect", 
+         ErrorManager::Instance()->ReportError(ErrorManager::High, 5506, "TCPConnection::Connect",
             Formatter::Format("Attempting to connect to {0} - Not a valid IP address.", remote_ip_address));
       }
 #endif
@@ -127,7 +127,7 @@ namespace HM
    }
 
    void
-   TCPConnection::StartAsyncConnect_(const String &ip_adress, int port)
+      TCPConnection::StartAsyncConnect_(const String& ip_adress, int port)
    {
       IPAddress adress;
       adress.TryParse(ip_adress, true);
@@ -142,8 +142,8 @@ namespace HM
 
       if (!allow_connect_to_self_ && LocalIPAddresses::Instance()->IsLocalPort(ep.address(), remote_port_))
       {
-         String sMessage; 
-            sMessage.Format(_T("Could not connect to %s on port %d since this would mean connecting to myself."), remote_ip_address_.c_str(), remote_port_);
+         String sMessage;
+         sMessage.Format(_T("Could not connect to %s on port %d since this would mean connecting to myself."), remote_ip_address_.c_str(), remote_port_);
 
          OnCouldNotConnect(sMessage);
 
@@ -155,12 +155,12 @@ namespace HM
       // Attempt a connection to the first endpoint in the list. Each endpoint
       // will be tried until we successfully establish a connection.
       socket_.async_connect(ep,
-               std::bind(&TCPConnection::AsyncConnectCompleted, shared_from_this(), std::placeholders::_1));
+         std::bind(&TCPConnection::AsyncConnectCompleted, shared_from_this(), std::placeholders::_1));
 
    }
 
    void
-   TCPConnection::AsyncConnectCompleted(const boost::system::error_code& err)
+      TCPConnection::AsyncConnectCompleted(const boost::system::error_code& err)
    {
       if (err)
       {
@@ -174,8 +174,8 @@ namespace HM
       Start();
    }
 
-   void 
-   TCPConnection::Start()
+   void
+      TCPConnection::Start()
    {
       LOG_DEBUG(Formatter::Format("TCP connection started for session {0}", session_id_));
 
@@ -190,7 +190,7 @@ namespace HM
    }
 
    void
-   TCPConnection::ProcessOperationQueue_(int recurse_level)
+      TCPConnection::ProcessOperationQueue_(int recurse_level)
    {
       if (recurse_level > 10)
       {
@@ -209,49 +209,49 @@ namespace HM
       switch (operation->GetType())
       {
       case IOOperation::BCTHandshake:
-        {
-           AsyncHandshake();
-           break;
-        }
+      {
+         AsyncHandshake();
+         break;
+      }
       case IOOperation::BCTWrite:
-         {
-            std::shared_ptr<ByteBuffer> pBuf = operation->GetBuffer();
-            AsyncWrite(pBuf);
-            break;
-         }
+      {
+         std::shared_ptr<ByteBuffer> pBuf = operation->GetBuffer();
+         AsyncWrite(pBuf);
+         break;
+      }
       case IOOperation::BCTRead:
-         {
-            AsyncRead(operation->GetString());               
-            break;
-         }
+      {
+         AsyncRead(operation->GetString());
+         break;
+      }
       case IOOperation::BCTShutdownSend:
-         {
-            Shutdown(boost::asio::ip::tcp::socket::shutdown_send);
-            operation_queue_.Pop(IOOperation::BCTShutdownSend);
-            ProcessOperationQueue_(recurse_level + 1);
-            break;
-         }
+      {
+         Shutdown(boost::asio::ip::tcp::socket::shutdown_send);
+         operation_queue_.Pop(IOOperation::BCTShutdownSend);
+         ProcessOperationQueue_(recurse_level + 1);
+         break;
+      }
       case IOOperation::BCTDisconnect:
-         {
-            Disconnect();
-            operation_queue_.Pop(IOOperation::BCTDisconnect);
-            ProcessOperationQueue_(recurse_level + 1);
-            break;
-         }
+      {
+         Disconnect();
+         operation_queue_.Pop(IOOperation::BCTDisconnect);
+         ProcessOperationQueue_(recurse_level + 1);
+         break;
+      }
 
       }
    }
-   
 
-   void 
-   TCPConnection::Shutdown(boost::asio::socket_base::shutdown_type what)
+
+   void
+      TCPConnection::Shutdown(boost::asio::socket_base::shutdown_type what)
    {
       boost::system::error_code ignored_error;
       socket_.shutdown(what, ignored_error);
    }
 
-   void 
-   TCPConnection::EnqueueDisconnect()
+   void
+      TCPConnection::EnqueueDisconnect()
    {
       ConnectionState current_connection_state = connection_state_;
 
@@ -270,8 +270,8 @@ namespace HM
    }
 
 
-   void 
-   TCPConnection::Disconnect()
+   void
+      TCPConnection::Disconnect()
    {
       // Perform graceful shutdown. No more operations will be performed. 
       Shutdown(boost::asio::socket_base::shutdown_both);
@@ -279,8 +279,8 @@ namespace HM
       connection_state_ = StateDisconnected;
    }
 
-   void 
-   TCPConnection::ThrowIfNotConnected_()
+   void
+      TCPConnection::ThrowIfNotConnected_()
    {
 
       ConnectionState current_connection_state = connection_state_;
@@ -291,8 +291,8 @@ namespace HM
       }
    }
 
-   void 
-   TCPConnection::EnqueueHandshake()
+   void
+      TCPConnection::EnqueueHandshake()
    {
       ThrowIfNotConnected_();
 
@@ -304,8 +304,8 @@ namespace HM
    }
 
 
-   void 
-   TCPConnection::AsyncHandshake()
+   void
+      TCPConnection::AsyncHandshake()
    {
       handshake_in_progress_ = true;
 
@@ -313,7 +313,7 @@ namespace HM
 
       // To do peer verification, it must both be enabled globally and supported by the deriving class.
       bool enable_peer_verification = Configuration::Instance()->GetVerifyRemoteSslCertificate() && IsClient();
-      
+
       int verify_mode = 0;
 
       boost::system::error_code error_code;
@@ -321,7 +321,7 @@ namespace HM
       if (enable_peer_verification)
       {
          verify_mode = boost::asio::ssl::context::verify_peer | boost::asio::ssl::context::verify_fail_if_no_peer_cert;
-                
+
          if (!expected_remote_hostname_.IsEmpty())
          {
             ssl_socket_.set_verify_callback(CertificateVerifier(session_id_, connection_security_, expected_remote_hostname_), error_code);
@@ -373,16 +373,16 @@ namespace HM
 
       boost::asio::ssl::stream_base::handshake_type handshakeType = IsClient() ?
          boost::asio::ssl::stream_base::client :
-      boost::asio::ssl::stream_base::server;
+         boost::asio::ssl::stream_base::server;
 
       ssl_socket_.async_handshake(handshakeType,
          std::bind(&TCPConnection::AsyncHandshakeCompleted, shared_from_this(),
-         std::placeholders::_1));
+            std::placeholders::_1));
    }
 
 
-   void 
-   TCPConnection::AsyncHandshakeCompleted(const boost::system::error_code& error)
+   void
+      TCPConnection::AsyncHandshakeCompleted(const boost::system::error_code& error)
    {
       handshake_in_progress_ = false;
 
@@ -396,7 +396,7 @@ namespace HM
          String sMessage;
          sMessage.Format(_T("TCPConnection - TLS/SSL handshake completed. Session Id: %d, Remote IP: %s, Version: %s, Cipher: %s, Bits: %d"), session_id_, SafeGetIPAddress().c_str(), String(cipher_info.GetVersion()).c_str(), String(cipher_info.GetName()).c_str(), cipher_info.GetBits());
          LOG_TCPIP(sMessage);
-         
+
          receive_buffer_.consume(receive_buffer_.size());
 
          OnHandshakeCompleted();
@@ -412,7 +412,7 @@ namespace HM
    }
 
    void
-   TCPConnection::HandshakeFailed_(const boost::system::error_code& error)
+      TCPConnection::HandshakeFailed_(const boost::system::error_code& error)
    {
       // The SSL handshake failed. This may happen for example if the user who has connected
       // to the TCP/IP port disconnects immediately without sending any data.
@@ -425,8 +425,8 @@ namespace HM
 
 
 
-   void 
-   TCPConnection::EnqueueShutdownSend()
+   void
+      TCPConnection::EnqueueShutdownSend()
    {
       ThrowIfNotConnected_();
 
@@ -437,14 +437,14 @@ namespace HM
       ProcessOperationQueue_(0);
    }
 
-   void 
-   TCPConnection::EnqueueRead()
+   void
+      TCPConnection::EnqueueRead()
    {
       EnqueueRead(GetCommandSeparator());
    }
 
-   void 
-   TCPConnection::EnqueueRead(const AnsiString &delimitor)
+   void
+      TCPConnection::EnqueueRead(const AnsiString& delimitor)
    {
       ThrowIfNotConnected_();
 
@@ -454,73 +454,43 @@ namespace HM
       ProcessOperationQueue_(0);
    }
 
-   void 
-   TCPConnection::AsyncRead(const AnsiString &delimitor)
+   void
+      TCPConnection::AsyncRead(const AnsiString& delimitor)
    {
       UpdateAutoLogoutTimer();
 
-      std::function<void (const boost::system::error_code&, size_t)> AsyncReadCompletedFunction =
-         std::bind(&TCPConnection::AsyncReadCompleted, shared_from_this(), 
-         std::placeholders::_1,
-         std::placeholders::_2);
+      std::function<void(const boost::system::error_code&, size_t)> AsyncReadCompletedFunction =
+         std::bind(&TCPConnection::AsyncReadCompleted, shared_from_this(),
+            std::placeholders::_1,
+            std::placeholders::_2);
 
       if (is_ssl_)
       {
          if (delimitor.GetLength() == 0)
             boost::asio::async_read(ssl_socket_, receive_buffer_, boost::asio::transfer_at_least(1), AsyncReadCompletedFunction);
          else
-            boost::asio::async_read_until(ssl_socket_, receive_buffer_,  delimitor, AsyncReadCompletedFunction);
+            boost::asio::async_read_until(ssl_socket_, receive_buffer_, delimitor, AsyncReadCompletedFunction);
       }
       else
       {
          if (delimitor.GetLength() == 0)
+         {
             boost::asio::async_read(socket_, receive_buffer_, boost::asio::transfer_at_least(1), AsyncReadCompletedFunction);
+         }
          else
+         {
             boost::asio::async_read_until(socket_, receive_buffer_, delimitor, AsyncReadCompletedFunction);
+         }
       }
 
    }
 
-   void 
-   TCPConnection::AsyncReadCompleted(const boost::system::error_code& error, size_t bytes_transferred)
+   void
+      TCPConnection::AsyncReadCompleted(const boost::system::error_code& error, size_t bytes_transferred)
    {
       UpdateAutoLogoutTimer();
 
-      auto saEnabled = Configuration::Instance()->GetAntiSpamConfiguration().GetSpamAssassinEnabled();
-      auto saPort = Configuration::Instance()->GetAntiSpamConfiguration().GetSpamAssassinPort();
-      // Catch SpamAssassin WinSock error code is 2 (boost boost::asio::error::eof)
-      if ((error.value() == 0 || error.value() == boost::asio::error::eof) && receive_binary_ && saEnabled && remote_port_ == saPort)
-      {
-         // https://www.boost.org/doc/libs/1_72_0/doc/html/boost_asio/overview/core/streams.html
-         // Why EOF is an Error
-         // The end of a stream can cause read, async_read, read_until or async_read_until functions to violate their contract.E.g.a read of N bytes may finish early due to EOF.
-         // An EOF error may be used to distinguish the end of a stream from a successful read of size 0.
-
-         std::shared_ptr<ByteBuffer> pBuffer = std::shared_ptr<ByteBuffer>(new ByteBuffer());
-         pBuffer->Allocate(receive_buffer_.size());
-
-         std::istream is(&receive_buffer_);
-         is.read((char*)pBuffer->GetBuffer(), receive_buffer_.size());
-
-         try
-         {
-            ParseData(pBuffer);
-         }
-         catch (DisconnectedException&)
-         {
-            throw;
-         }
-         catch (...)
-         {
-            String message;
-            message.Format(_T("An error occured while parsing data. Data size: %d"), pBuffer->GetSize());
-
-            ReportError(ErrorManager::Medium, 5136, "TCPConnection::AsyncReadCompleted", message);
-
-            throw;
-         }
-      }
-      else if (error.value() != 0)
+      if (error.value() != 0)
       {
          if (connection_state_ != StateConnected)
          {
@@ -580,11 +550,11 @@ namespace HM
             // consume trailing \n on line.
             receive_buffer_.consume(1);
 
-      #ifdef _DEBUG
+#ifdef _DEBUG
             String sDebugOutput;
             sDebugOutput.Format(_T("RECEIVED: %s\r\n"), String(s).c_str());
             OutputDebugString(sDebugOutput);
-      #endif
+#endif
 
             try
             {
@@ -610,14 +580,14 @@ namespace HM
       ProcessOperationQueue_(0);
    }
 
-   void 
-   TCPConnection::EnqueueWrite(const AnsiString &sData)
+   void
+      TCPConnection::EnqueueWrite(const AnsiString& sData)
    {
       AnsiString sTemp = sData;
-      char *pBuf = sTemp.GetBuffer();
+      char* pBuf = sTemp.GetBuffer();
 
       std::shared_ptr<ByteBuffer> pBuffer = std::shared_ptr<ByteBuffer>(new ByteBuffer());
-      pBuffer->Add((BYTE*) pBuf, sData.GetLength());
+      pBuffer->Add((BYTE*)pBuf, sData.GetLength());
 
 #ifdef _DEBUG
       String sDebugOutput;
@@ -629,8 +599,8 @@ namespace HM
 
    }
 
-   void 
-   TCPConnection::EnqueueWrite(std::shared_ptr<ByteBuffer> pBuffer)
+   void
+      TCPConnection::EnqueueWrite(std::shared_ptr<ByteBuffer> pBuffer)
    {
       ThrowIfNotConnected_();
 
@@ -640,15 +610,15 @@ namespace HM
       ProcessOperationQueue_(0);
    }
 
-   void 
-   TCPConnection::AsyncWrite(std::shared_ptr<ByteBuffer> buffer)
+   void
+      TCPConnection::AsyncWrite(std::shared_ptr<ByteBuffer> buffer)
    {
       UpdateAutoLogoutTimer();
 
-      std::function<void (const boost::system::error_code&, size_t)> AsyncWriteCompletedFunction =
+      std::function<void(const boost::system::error_code&, size_t)> AsyncWriteCompletedFunction =
          std::bind(&TCPConnection::AsyncWriteCompleted, shared_from_this(),
-         std::placeholders::_1,
-         std::placeholders::_2);
+            std::placeholders::_1,
+            std::placeholders::_2);
 
       if (is_ssl_)
          boost::asio::async_write
@@ -657,11 +627,11 @@ namespace HM
          boost::asio::async_write
          (socket_, boost::asio::buffer(buffer->GetCharBuffer(), buffer->GetSize()), AsyncWriteCompletedFunction);
 
-      
+
    }
 
-   void 
-   TCPConnection::AsyncWriteCompleted(const boost::system::error_code& error, size_t bytes_transferred)
+   void
+      TCPConnection::AsyncWriteCompleted(const boost::system::error_code& error, size_t bytes_transferred)
    {
       UpdateAutoLogoutTimer();
 
@@ -694,15 +664,15 @@ namespace HM
       ProcessOperationQueue_(0);
    }
 
-   IPAddress 
-   TCPConnection::GetRemoteEndpointAddress()
+   IPAddress
+      TCPConnection::GetRemoteEndpointAddress()
    {
       boost::asio::ip::tcp::endpoint remoteEndpoint = socket_.remote_endpoint();
       return IPAddress(remoteEndpoint.address());
    }
 
-   unsigned long 
-   TCPConnection::GetLocalEndpointPort() 
+   unsigned long
+      TCPConnection::GetLocalEndpointPort()
    {
       boost::asio::ip::tcp::endpoint localEndpoint = socket_.local_endpoint();
 
@@ -711,13 +681,13 @@ namespace HM
    }
 
    void
-   TCPConnection::SetReceiveBinary(bool binary)
+      TCPConnection::SetReceiveBinary(bool binary)
    {
       receive_binary_ = binary;
    }
 
-   String 
-   TCPConnection::SafeGetIPAddress()
+   String
+      TCPConnection::SafeGetIPAddress()
    {
       try
       {
@@ -732,19 +702,19 @@ namespace HM
    }
 
    bool
-   TCPConnection::IsClient()
+      TCPConnection::IsClient()
    {
       return is_client_;
    }
 
-   void  
-   TCPConnection::SetSecurityRange(std::shared_ptr<SecurityRange> securityRange)
+   void
+      TCPConnection::SetSecurityRange(std::shared_ptr<SecurityRange> securityRange)
    {
       security_range_ = securityRange;
    }
 
    std::shared_ptr<SecurityRange>
-   TCPConnection::GetSecurityRange()
+      TCPConnection::GetSecurityRange()
    {
       if (!security_range_)
       {
@@ -757,20 +727,20 @@ namespace HM
    }
 
    int
-   TCPConnection::GetSessionID()
+      TCPConnection::GetSessionID()
    {
       return session_id_;
    }
 
 
-   AnsiString 
-   TCPConnection::GetIPAddressString()
+   AnsiString
+      TCPConnection::GetIPAddressString()
    {
       return GetRemoteEndpointAddress().ToString();
    }
 
    CipherInfo
-   TCPConnection::GetCipherInfo()
+      TCPConnection::GetCipherInfo()
    {
       if (!is_ssl_)
       {
@@ -785,15 +755,15 @@ namespace HM
    }
 
 
-   void 
-   TCPConnection::SetTimeout(int seconds)
+   void
+      TCPConnection::SetTimeout(int seconds)
    {
       timeout_ = seconds;
    }
 
 
-   void 
-   TCPConnection::UpdateAutoLogoutTimer()
+   void
+      TCPConnection::UpdateAutoLogoutTimer()
    {
       /*
          The timer instance is not thread safe for multiple concurrent callers.
@@ -815,12 +785,12 @@ namespace HM
          return;
       }
 
-         
+
       timer_.async_wait(std::bind(&TCPConnection::OnTimeout, std::weak_ptr<TCPConnection>(shared_from_this()), std::placeholders::_1));
    }
 
    void
-   TCPConnection::OnTimeout(std::weak_ptr<TCPConnection> connection, boost::system::error_code const& err)
+      TCPConnection::OnTimeout(std::weak_ptr<TCPConnection> connection, boost::system::error_code const& err)
    {
       std::shared_ptr<TCPConnection> conn = connection.lock();
       if (!conn)
@@ -828,7 +798,7 @@ namespace HM
          return;
       }
 
-      if (err == boost::asio::error::operation_aborted) 
+      if (err == boost::asio::error::operation_aborted)
       {
          // the timeout operation was cancelled.
          return;
@@ -842,8 +812,8 @@ namespace HM
       conn->Timeout();
    }
 
-   void 
-   TCPConnection::Timeout()
+   void
+      TCPConnection::Timeout()
    {
       if (connection_state_ != StateConnected)
       {
@@ -876,32 +846,31 @@ namespace HM
       }
    }
 
-   void 
-   TCPConnection::ReportError(ErrorManager::eSeverity sev, int code, const String &context, const String &message, const boost::system::system_error &error)
+   void
+      TCPConnection::ReportError(ErrorManager::eSeverity sev, int code, const String& context, const String& message, const boost::system::system_error& error)
    {
       String formattedMessage;
       formattedMessage.Format(_T("%s Remote IP: %s"), message.c_str(), SafeGetIPAddress().c_str());
       ErrorManager::Instance()->ReportError(sev, code, context, formattedMessage, error);
    }
 
-	void
-	TCPConnection::ReportError(ErrorManager::eSeverity sev, int code, const String &context, const String &message, const boost::system::error_code &error)
-	{
-      String formattedMessage;
-      formattedMessage.Format(_T("%s Remote IP: %s"), message.c_str(), SafeGetIPAddress().c_str());
-      ErrorManager::Instance()->ReportError(sev, code, context, formattedMessage, error);
-	}
-
-   void 
-   TCPConnection::ReportError(ErrorManager::eSeverity sev, int code, const String &context, const String &message)
+   void
+      TCPConnection::ReportError(ErrorManager::eSeverity sev, int code, const String& context, const String& message, const boost::system::error_code& error)
    {
       String formattedMessage;
       formattedMessage.Format(_T("%s Remote IP: %s"), message.c_str(), SafeGetIPAddress().c_str());
-      ErrorManager::Instance()->ReportError(sev, code, context, formattedMessage);         
+      ErrorManager::Instance()->ReportError(sev, code, context, formattedMessage, error);
    }
 
-   void 
-   TCPConnection::ReportDebugMessage(const String &message, const boost::system::error_code &error)
+   void
+      TCPConnection::ReportError(ErrorManager::eSeverity sev, int code, const String& context, const String& message)
+   {
+      String formattedMessage;
+      formattedMessage.Format(_T("%s Remote IP: %s"), message.c_str(), SafeGetIPAddress().c_str());
+      ErrorManager::Instance()->ReportError(sev, code, context, formattedMessage);
+   }
+   void
+      TCPConnection::ReportDebugMessage(const String& message, const boost::system::error_code& error)
    {
       String formattedMessage;
       formattedMessage.Format(_T("%s Remote IP: %s, Session: %d, Code: %d, Message: %s"), message.c_str(), SafeGetIPAddress().c_str(), GetSessionID(), error.value(), String(error.message()).c_str());
