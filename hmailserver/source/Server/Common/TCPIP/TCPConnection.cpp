@@ -181,6 +181,10 @@ namespace HM
 
       connection_state_ = StateConnected;
 
+      boost::system::error_code ec;
+      socket_.set_option(boost::asio::ip::tcp::no_delay(true), ec);
+      if (ec) { LOG_DEBUG(Formatter::Format(_T("Failed to set TCP_NODELAY, session {0}, code {1}"), session_id_, ec.value())); }
+
       OnConnected();
 
       if (connection_security_ == CSSSL)
@@ -366,7 +370,7 @@ namespace HM
             String error_message = Formatter::Format(_T("Failed to configure OpenSSL SNI. Expected remote host name: {0}."), expected_remote_hostname_);
             ErrorManager::Instance()->ReportError(ErrorManager::Medium, 5604, "TCPConnection::AsyncHandshake", error_message, sni_error_code);
 
-            HandshakeFailed_(error_code);
+            HandshakeFailed_(sni_error_code);
             return;
          }
       }
@@ -490,12 +494,19 @@ namespace HM
    {
       UpdateAutoLogoutTimer();
 
-      if (error.value() != 0)
+      // Ignore end of file or end of stream error when binary transfer, there may still be data in the receive buffer we can read.
+      if ((error && !receive_binary_) || (error && error != boost::asio::error::eof && receive_binary_))
       {
          if (connection_state_ != StateConnected)
          {
             // The read failed, but we've already started the disconnection. So we should not log the failure
             // or enqueue a new disconnect.
+            return;
+         }
+
+         if (error == boost::asio::error::eof)
+         {
+            // Ignore end of file or end of stream error
             return;
          }
 
@@ -505,7 +516,7 @@ namespace HM
          message.Format(_T("The read operation failed. Bytes transferred: %d"), bytes_transferred);
          ReportDebugMessage(message, error);
 
-         if (error.value() == boost::asio::error::not_found)
+         if (error == boost::asio::error::not_found)
          {
             // read buffer is full...
             OnExcessiveDataReceived();
@@ -525,7 +536,8 @@ namespace HM
 
             try
             {
-               ParseData(pBuffer);
+               if (pBuffer->GetSize() > 0)
+                  ParseData(pBuffer);
             }
             catch (DisconnectedException&)
             {
