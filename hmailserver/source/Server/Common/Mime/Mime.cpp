@@ -1356,28 +1356,26 @@ namespace HM
       if (strBoundary.empty())
          return;					// boundary not be set
 
-      int nBoundSize = (int)strBoundary.size() + 6;
-      for (BodyList::const_iterator it=bodies_.begin(); it!=bodies_.end(); it++)
-      {
-         // If the initial body ends with \r\n, remove them. We add new ones below.
-         if (bodies_.begin() == it && output.size() >= 2 && 
-            output.at(output.size()-2) == '\r' && output.at(output.size()-1) == '\n')
-         {
-            output = output.Mid(0, output.GetLength() - 2);
-         }
+  int nBoundSize = (int)strBoundary.size() + 6;
+  for (BodyList::const_iterator it = bodies_.begin(); it != bodies_.end(); it++)
+  {
+     // CHANGE: Removed "bodies_.begin() == it &&"
+     // We must always check if the previous data ended with CRLF to avoid 
+     // double CRLF generation (which breaks DKIM on nested multiparts).
+     if (output.size() >= 2 &&
+        output.at(output.size() - 2) == '\r' && output.at(output.size() - 1) == '\n')
+     {
+        output = output.Mid(0, output.GetLength() - 2);
+     }
 
-         AnsiString boundaryLine = Formatter::Format(_T("\r\n--{0}\r\n"), String(strBoundary));
-         output.append(boundaryLine);
+     AnsiString boundaryLine = Formatter::Format(_T("\r\n--{0}\r\n"), String(strBoundary));
+     output.append(boundaryLine);
 
-         std::shared_ptr<MimeBody> pBP = *it;
-         ASSERT(pBP != NULL);	
+     std::shared_ptr<MimeBody> pBP = *it;
+     ASSERT(pBP != NULL);
 
-         pBP->Store(output);
-      }
-
-      AnsiString endBoundaryLine = Formatter::Format(_T("\r\n--{0}--\r\n"), String(strBoundary));
-      output.append(endBoundaryLine);
-   }
+     pBP->Store(output);
+  }
 
    String
       MimeBody::GetCleanContentType() const
