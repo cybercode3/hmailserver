@@ -1337,7 +1337,7 @@ namespace HM
    }
 
    // store the body part to un-encoded string buffer
-   void MimeBody::Store(AnsiString &output, bool bIncludeHeader) const
+   void MimeBody::Store(AnsiString& output, bool bIncludeHeader) const
    {
       // store header fields
       int nSize = 0;
@@ -1356,24 +1356,25 @@ namespace HM
       if (strBoundary.empty())
          return;					// boundary not be set
 
-  int nBoundSize = (int)strBoundary.size() + 6;
-  for (BodyList::const_iterator it=bodies_.begin(); it!=bodies_.end(); it++)
-  {
-     // If the initial body ends with \r\n, remove them. We add new ones below.
-     if (bodies_.begin() == it && output.size() >= 2 && 
-        output.at(output.size()-2) == '\r' && output.at(output.size()-1) == '\n')
-     {
-        output = output.Mid(0, output.GetLength() - 2);
-     }
-     
-     AnsiString boundaryLine = Formatter::Format(_T("\r\n--{0}\r\n"), String(strBoundary));
-     output.append(boundaryLine);
+      int nBoundSize = (int)strBoundary.size() + 6;
+      for (BodyList::const_iterator it = bodies_.begin(); it != bodies_.end(); it++)
+      {
+         // If the initial body ends with \r\n, remove them. We add new ones below.
+         if (bodies_.begin() == it && output.size() >= 2 &&
+            output.at(output.size() - 2) == '\r' && output.at(output.size() - 1) == '\n')
+         {
+            output = output.Mid(0, output.GetLength() - 2);
+         }
 
-     std::shared_ptr<MimeBody> pBP = *it;
-     ASSERT(pBP != NULL);	
+         AnsiString boundaryLine = Formatter::Format(_T("\r\n--{0}\r\n"), String(strBoundary));
+         output.append(boundaryLine);
 
-     pBP->Store(output);
-  }
+         std::shared_ptr<MimeBody> pBP = *it;
+         ASSERT(pBP != NULL);
+
+         pBP->Store(output);
+      }
+   }
 
    String
       MimeBody::GetCleanContentType() const
