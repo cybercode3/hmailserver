@@ -2,6 +2,8 @@
 // http://www.hmailserver.com
 
 #include "stdafx.h"
+
+#include <cerrno>
 #include "IMAPCommandUID.h"
 #include "IMAPConnection.h"
 #include "IMAPSimpleCommandParser.h"
@@ -28,6 +30,34 @@
 
 namespace HM
 {
+   namespace
+   {
+      bool TryParseUIDSequenceValue(const String& value, unsigned int highest_uid, unsigned int& parsed_value)
+      {
+         String trimmed = value;
+         trimmed.Trim();
+
+         if (trimmed.IsEmpty())
+            return false;
+
+         if (trimmed == _T("*"))
+         {
+            parsed_value = highest_uid;
+            return true;
+         }
+
+         errno = 0;
+         TCHAR* end_ptr = 0;
+         unsigned long parsed_long = _tcstoul(trimmed, &end_ptr, 10);
+
+         if (errno == ERANGE || end_ptr == 0 || *end_ptr != 0 || parsed_long == 0 || parsed_long > UINT_MAX)
+            return false;
+
+         parsed_value = (unsigned int)parsed_long;
+         return true;
+      }
+   }
+
    IMAPCommandUID::IMAPCommandUID()
    {
 
@@ -40,7 +70,7 @@ namespace HM
 
 
    IMAPResult
-   IMAPCommandUID::ExecuteCommand(std::shared_ptr<IMAPConnection> pConnection, std::shared_ptr<IMAPCommandArgument> pArgument)
+      IMAPCommandUID::ExecuteCommand(std::shared_ptr<IMAPConnection> pConnection, std::shared_ptr<IMAPCommandArgument> pArgument)
    {
       if (!pConnection->IsAuthenticated())
          return IMAPResult(IMAPResult::ResultNo, "Authenticate first");
@@ -54,7 +84,7 @@ namespace HM
       std::shared_ptr<IMAPSimpleCommandParser> pParser = std::shared_ptr<IMAPSimpleCommandParser>(new IMAPSimpleCommandParser());
 
       pParser->Parse(pArgument);
-      
+
       if (pParser->WordCount() < 2)
          return IMAPResult(IMAPResult::ResultBad, "Command requires at least 1 parameter.");
 
@@ -91,7 +121,7 @@ namespace HM
       }
       else if (sTypeOfUID.CompareNoCase(_T("SEARCH")) == 0)
       {
-         std::shared_ptr<IMAPCommandSEARCH> pCommand = std::shared_ptr<IMAPCommandSEARCH> (new IMAPCommandSEARCH(false));
+         std::shared_ptr<IMAPCommandSEARCH> pCommand = std::shared_ptr<IMAPCommandSEARCH>(new IMAPCommandSEARCH(false));
          pCommand->SetIsUID();
          IMAPResult result = pCommand->ExecuteCommand(pConnection, pArgument);
 
@@ -102,7 +132,7 @@ namespace HM
       }
       else if (sTypeOfUID.CompareNoCase(_T("SORT")) == 0)
       {
-         std::shared_ptr<IMAPCommandSEARCH> pCommand = std::shared_ptr<IMAPCommandSEARCH> (new IMAPCommandSEARCH(true));
+         std::shared_ptr<IMAPCommandSEARCH> pCommand = std::shared_ptr<IMAPCommandSEARCH>(new IMAPCommandSEARCH(true));
          pCommand->SetIsUID();
          IMAPResult result = pCommand->ExecuteCommand(pConnection, pArgument);
 
@@ -199,7 +229,7 @@ namespace HM
    }
 
    IMAPResult
-   IMAPCommandUID::UIDExpunge_(std::shared_ptr<IMAPConnection> pConnection, std::shared_ptr<IMAPCommandArgument> pArgument, const String &sequence_set)
+      IMAPCommandUID::UIDExpunge_(std::shared_ptr<IMAPConnection> pConnection, std::shared_ptr<IMAPCommandArgument> pArgument, const String& sequence_set)
    {
       if (pConnection->GetCurrentFolderReadOnly())
          return IMAPResult(IMAPResult::ResultNo, "Expunge command on read-only folder.");
@@ -243,7 +273,7 @@ namespace HM
       for (__int64 message_index : expunged_message_indexes)
       {
          String line;
-         line.Format(_T("* %d EXPUNGE\r\n"), (int) message_index);
+         line.Format(_T("* %d EXPUNGE\r\n"), (int)message_index);
          response += line;
       }
 
@@ -251,7 +281,7 @@ namespace HM
 
       if (!expunged_message_ids.empty())
       {
-         auto &recent_messages = pConnection->GetRecentMessages();
+         auto& recent_messages = pConnection->GetRecentMessages();
 
          for (__int64 message_id : expunged_message_ids)
          {
@@ -271,22 +301,14 @@ namespace HM
       return IMAPResult();
    }
 
-   unsigned int
-   IMAPCommandUID::ParseUIDValue_(String value, unsigned int highest_uid)
+   bool
+      IMAPCommandUID::ParseUIDValue_(String value, unsigned int highest_uid, unsigned int& parsed_value)
    {
-      value.Trim();
-
-      if (value.IsEmpty())
-         return 0;
-
-      if (value == _T("*"))
-         return highest_uid;
-
-      return (unsigned int) _ttoi(value);
+      return TryParseUIDSequenceValue(value, highest_uid, parsed_value);
    }
 
    bool
-   IMAPCommandUID::UIDMatchesSequence_(unsigned int uid, const std::vector<String> &sequence_parts, unsigned int highest_uid)
+      IMAPCommandUID::UIDMatchesSequence_(unsigned int uid, const std::vector<String>& sequence_parts, unsigned int highest_uid)
    {
       for (String token : sequence_parts)
       {
@@ -302,11 +324,12 @@ namespace HM
             String start_part = token.Mid(0, colon_position);
             String end_part = token.Mid(colon_position + 1);
 
-            unsigned int start_value = ParseUIDValue_(start_part, highest_uid);
-            unsigned int end_value = ParseUIDValue_(end_part, highest_uid);
+            unsigned int start_value = 0;
+            unsigned int end_value = 0;
 
-            if (end_part.IsEmpty())
-               end_value = highest_uid;
+            if (!ParseUIDValue_(start_part, highest_uid, start_value) ||
+               !ParseUIDValue_(end_part, highest_uid, end_value))
+               continue;
 
             unsigned int lower = start_value;
             unsigned int upper = end_value;
@@ -322,7 +345,11 @@ namespace HM
          }
          else
          {
-            unsigned int value = ParseUIDValue_(token, highest_uid);
+            unsigned int value = 0;
+
+            if (!ParseUIDValue_(token, highest_uid, value))
+               continue;
+
             if (value == uid)
                return true;
          }
