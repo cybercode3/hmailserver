@@ -1,10 +1,17 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.40629.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.37027.11
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hMailServer", "hMailServer.vcxproj", "{2679BEE5-8D11-4F4B-BC1A-49EEA96A3423}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hMailServer.Minidump", "..\hMailServer.Minidump\hMailServer.Minidump.vcxproj", "{78BB2F37-2220-472F-9316-49C76C645433}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{216F2424-6E45-43F6-B690-0BCC12EBE6B5}"
+	ProjectSection(SolutionItems) = preProject
+		..\..\..\installation\hMailServer64.iss = ..\..\..\installation\hMailServer64.iss
+		..\..\..\..\README.md = ..\..\..\..\README.md
+		..\..\..\installation\section_files_64.iss = ..\..\..\installation\section_files_64.iss
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,5 +30,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E151852D-5923-4D1F-91B4-2346CB7177ED}
 	EndGlobalSection
 EndGlobal

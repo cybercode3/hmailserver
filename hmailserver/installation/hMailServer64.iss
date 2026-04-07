@@ -1,5 +1,6 @@
 #define HMAILSERVERLIBS = GetEnv("hMailServerLibs")
-#define OPENSSL_LIBS_PATH HMAILSERVERLIBS + "\openssl-1.1.1u\out64\bin"
+#define OPENSSL_LIBS_PATH HMAILSERVERLIBS + "\openssl-3.5.6\out64\bin"
+#define POSTGRESQL_LIBPQ_PATH HMAILSERVERLIBS + "\postgresql-18.3\builddir\src\interfaces\libpq"
 
 
 #include "section_setup.iss"

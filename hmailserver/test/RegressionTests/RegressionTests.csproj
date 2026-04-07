@@ -107,6 +107,7 @@
     <Compile Include="SMTP\RcptToParsing.cs" />
     <Compile Include="SMTP\MailFromParsing.cs" />
     <Compile Include="SSL\SslTlsVersionTests.cs" />
+    <Compile Include="SSL\TlsOptionsTests.cs" />
     <Compile Include="SSL\SslServerTests.cs" />
     <Compile Include="Infrastructure\TCPIP.cs" />
     <Compile Include="Infrastructure\Timeouts.cs" />
