@@ -1,6 +1,7 @@
 // Copyright (c) 2010 Martin Knafve / hMailServer.com.  
 // http://www.hmailserver.com
 
+using System;
 using NUnit.Framework;
 using RegressionTests.Shared;
 using hMailServer;
@@ -217,6 +218,48 @@ namespace RegressionTests.IMAP
          Assert.IsTrue(simulator.CreateFolder(folderName));
          Assert.IsTrue(simulator.Subscribe(folderName));
          Assert.IsTrue(simulator.LSUB().Contains("\"" + folderName + "\""));
+         simulator.Disconnect();
+      }
+
+      [Test]
+      public void TestStatusFolderWithBackslashDelimiter()
+      {
+         _settings.IMAPHierarchyDelimiter = "\\";
+
+         var account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "status-delimiter@example.test", "test");
+
+         var simulator = new ImapClientSimulator();
+         simulator.Connect();
+         simulator.LogonWithLiteral(account.Address, "test");
+         simulator.CreateFolder("Test\\HelloWorld");
+
+         string result = simulator.Status("Test\\\\HelloWorld", "MESSAGES");
+         Assert.IsTrue(result.Contains("\"Test\\\\HelloWorld\""), "STATUS response should escape backslashes. Got: " + result);
+         Assert.IsTrue(result.Contains("A08 OK"));
+         simulator.Disconnect();
+      }
+
+      [Test]
+      public void TestStatusFolderWithBackslashDelimiter_Literal()
+      {
+         _settings.IMAPHierarchyDelimiter = "\\";
+
+         var account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "status-delimiter@example.test", "test");
+
+         string folderName = "Test\\HelloWorld";
+
+         var simulator = new ImapClientSimulator();
+         simulator.Connect();
+         simulator.LogonWithLiteral(account.Address, "test");
+         simulator.CreateFolder(folderName);
+
+         simulator.SendRaw($"A08 STATUS {{{folderName.Length}}}\r\n");
+         simulator.Receive();
+         simulator.SendRaw(folderName + Environment.NewLine);
+         var statusResponse = simulator.Receive();
+
+         Assert.IsTrue(statusResponse.Contains("\"Test\\\\HelloWorld\""), "STATUS response should escape backslashes. Got: " + statusResponse);
+         Assert.IsTrue(statusResponse.Contains("A08 OK"));
          simulator.Disconnect();
       }
 

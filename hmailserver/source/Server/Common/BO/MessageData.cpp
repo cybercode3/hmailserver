@@ -311,6 +311,12 @@ namespace HM
       if (!pPart)
          pPart = CreatePart("text/plain");
 
+      if (sBody.IsEmpty())
+      {
+         pPart->SetRawText("");
+         return;
+      }
+
       String sModifiedBody = sBody;
       if (sModifiedBody.Right(2) != _T("\r\n"))
       {
@@ -350,6 +356,12 @@ namespace HM
       {
          // Create a new part.
          pHTMLPart = CreatePart("text/html");
+      }
+
+      if (sNewVal.IsEmpty())
+      {
+         pHTMLPart->SetRawText("");
+         return;
       }
 
       String sModifiedBody = sNewVal;

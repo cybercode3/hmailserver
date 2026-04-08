@@ -53,6 +53,7 @@ namespace HM
 
       bool bAddSpace = false;
 
+      IMAPFolder::EscapeFolderString(sFolderName);
       sResponse = "* STATUS \"" + sFolderName + "\" ";
 
       sResponse+= "(";
