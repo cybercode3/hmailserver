@@ -125,14 +125,3 @@ NOTE: When running tests, your local hMailServer installation will be updated wi
 5. Right-click on a test or test category and select "Run".
 
 You can also navigate to the source code for a test, right-click anywhere and select "Run Test(s)" to run it.
-
-Releasing hMailServer
-=====================
-
-Without finding any serious issues:
-
-1. Run all integration tests on supported versions of Windows and the different supported databases. 
-2. Run all server stress tests
-3. Enable Gflags (gflags /p /enable hmailserver.exe) and run all integration tests to check for memory issues
-4. Run for at least 1 week in production for hMailServer.com
-5. Wait for at least 500 downloads of the beta version
