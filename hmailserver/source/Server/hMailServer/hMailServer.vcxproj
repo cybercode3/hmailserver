@@ -159,7 +159,7 @@ EXIT 0
     <PostBuildEvent>
       <Message>Performing registration</Message>
       <Command>xcopy /F /Y $(hMailServerLibs)\openssl-3.5.6\out64\bin\libcrypto-3-x64.dll $(OutDir)
-xcopy /F /Y $(hMailServerLibs)\openssl-3.5.5\out64\bin\libssl-3-x64.dll $(OutDir)
+xcopy /F /Y $(hMailServerLibs)\openssl-3.5.6\out64\bin\libssl-3-x64.dll $(OutDir)
 xcopy /F /Y $(hMailServerLibs)\postgresql-18.3\builddir\src\interfaces\libpq\*.dll $(OutDir)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
