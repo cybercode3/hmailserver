@@ -36,15 +36,15 @@ namespace RegressionTests.Infrastructure
          // Wait for the auto-reply.
          string text = Pop3ClientSimulator.AssertGetFirstMessageText(account2.Address, "test");
 
-         Assert.IsFalse(text.Contains("Return-Path: account2@test.com"));
-         Assert.IsFalse(text.Contains("Return-Path: account1@test.com"));
-         Assert.IsTrue(text.Contains("Return-Path: original-address@test.com"));
+         Assert.IsFalse(text.Contains("Return-Path: <account2@test.com>"));
+         Assert.IsFalse(text.Contains("Return-Path: <account1@test.com>"));
+         Assert.IsTrue(text.Contains("Return-Path: <original-address@test.com>"));
          
       }
 
       [Test]
       [Category("Accounts")]
-      [Description("Ensure that messges aren't forwarded if they re deleted using a rule.")]
+      [Description("Ensure that messages aren't forwarded if they re deleted using a rule.")]
       public void ConfirmSingleReturnPathAfterRuleForward()
       {
          // Create a test account
@@ -81,9 +81,9 @@ namespace RegressionTests.Infrastructure
          // Wait for the auto-reply.
          string text = Pop3ClientSimulator.AssertGetFirstMessageText(account2.Address, "test");
 
-         Assert.IsFalse(text.Contains("Return-Path: account-a@test.com"));
-         Assert.IsFalse(text.Contains("Return-Path: account2@test.com"));
-         Assert.IsTrue(text.Contains("Return-Path: external@test.com"));
+         Assert.IsFalse(text.Contains("Return-Path: <account-a@test.com>"));
+         Assert.IsFalse(text.Contains("Return-Path: <account2@test.com>"));
+         Assert.IsTrue(text.Contains("Return-Path: <external@test.com>"));
       }
 
       [Test]
@@ -134,6 +134,8 @@ namespace RegressionTests.Infrastructure
          string s = pop3ClientSimulator.GetFirstMessageText(account1.Address, "test");
          if (s.IndexOf("Out of office!") < 0)
             throw new Exception("ERROR - Auto reply subject not set properly.");
+         Assert.IsTrue(s.Contains("Return-Path: <>"),
+            "Vacation reply envelope sender must be empty (<>) to prevent mail loops per RFC 3834.");
 
          account2.VacationMessageIsOn = false;
          account2.Save();
@@ -316,7 +318,71 @@ namespace RegressionTests.Infrastructure
          var message = Pop3ClientSimulator.AssertGetFirstMessageText(list.Address, "test");
 
 
-         Assert.IsTrue(message.Contains("Return-Path: sender@test.com"));
+         Assert.IsTrue(message.Contains("Return-Path: <sender@test.com>"));
+      }
+
+      [Test]
+      [Category("Accounts")]
+      [Description("When forwarding a bounce (MAIL FROM:<>), the null envelope-from must be preserved so the forwarded copy cannot itself generate a bounce loop.")]
+      public void WhenAccountForwardingBounceMessageShouldPreserveNullEnvelopeFrom()
+      {
+         var forwarder = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "forwarder@test.com", "test");
+         var recipient = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "recipient@test.com", "test");
+
+         forwarder.ForwardEnabled = true;
+         forwarder.ForwardAddress = recipient.Address;
+         forwarder.ForwardKeepOriginal = true;
+         forwarder.Save();
+
+         var smtp = new SmtpClientSimulator();
+         smtp.Send("", new System.Collections.Generic.List<string> { forwarder.Address }, "Bounce subject", "Bounce body");
+
+         Pop3ClientSimulator.AssertMessageCount(forwarder.Address, "test", 1);
+
+         _application.SubmitEMail();
+         CustomAsserts.AssertRecipientsInDeliveryQueue(0);
+
+         var message = Pop3ClientSimulator.AssertGetFirstMessageText(recipient.Address, "test");
+         Assert.IsTrue(message.Contains("Return-Path: <>"),
+            "Forwarding a bounce must preserve the null envelope-from to prevent bounce loops.");
+      }
+
+      [Test]
+      [Category("Accounts")]
+      [Description("When a rule forwards a bounce (MAIL FROM:<>), the null envelope-from must be preserved so the forwarded copy cannot itself generate a bounce loop.")]
+      public void WhenRuleForwardsBounceMessageShouldPreserveNullEnvelopeFrom()
+      {
+         var account1 = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "rulefwd-src@test.com", "test");
+         var account2 = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "rulefwd-dst@test.com", "test");
+
+         var rule = account1.Rules.Add();
+         rule.Name = "Forward all";
+         rule.Active = true;
+
+         var criteria = rule.Criterias.Add();
+         criteria.UsePredefined = true;
+         criteria.PredefinedField = eRulePredefinedField.eFTMessageSize;
+         criteria.MatchType = eRuleMatchType.eMTGreaterThan;
+         criteria.MatchValue = "0";
+         criteria.Save();
+
+         var action = rule.Actions.Add();
+         action.Type = eRuleActionType.eRAForwardEmail;
+         action.To = account2.Address;
+         action.Save();
+
+         rule.Save();
+
+         var smtp = new SmtpClientSimulator();
+         smtp.Send("", new System.Collections.Generic.List<string> { account1.Address }, "Bounce subject", "Bounce body");
+
+         Pop3ClientSimulator.AssertMessageCount(account1.Address, "test", 1);
+         _application.SubmitEMail();
+         CustomAsserts.AssertRecipientsInDeliveryQueue(0);
+
+         var message = Pop3ClientSimulator.AssertGetFirstMessageText(account2.Address, "test");
+         Assert.IsTrue(message.Contains("Return-Path: <>"),
+            "Rule-based forwarding of a bounce must preserve the null envelope-from to prevent bounce loops.");
       }
 
       [Test]
@@ -355,7 +421,7 @@ namespace RegressionTests.Infrastructure
 
       [Test]
       [Category("Accounts")]
-      [Description("Ensure that messges aren't forwarded if they re deleted using a rule.")]
+      [Description("Ensure that messages aren't forwarded if they re deleted using a rule.")]
       public void TestForwardingCombinedWithAccountRule()
       {
          // Create a test account

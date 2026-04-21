@@ -264,6 +264,13 @@ namespace HM
       }
       else
       {
+         // Check if start is greater than the buffer.
+         if (iOctetStart > iBufferSize)
+         {
+            iOctetStart = iBufferSize;
+            iOctetCount = 0;
+         }
+
          // Jump forward to the start of the buffer.
          iBufferSize -= iOctetStart;
 
@@ -283,12 +290,13 @@ namespace HM
    }
 
    std::shared_ptr<MimeBody> 
-   IMAPFetch::GetBodyPartByRecursiveIdentifier_(std::shared_ptr<MimeBody> pBody, const String &sName)
+      IMAPFetch::GetBodyPartByRecursiveIdentifier_(std::shared_ptr<MimeBody> pBody, IMAPFetchParser::BodyPart& oPart)
    //---------------------------------------------------------------------------()
    // DESCRIPTION:
    // Returns a body part by a given identifier. An identifier can be 1, 2, 1.2 etc.
    //---------------------------------------------------------------------------()
    {
+      String sName = oPart.GetName();
       if (!pBody || sName.IsEmpty())
       {
          std::shared_ptr<MimeBody> pEmpty;
@@ -320,7 +328,8 @@ namespace HM
                return pBody;
             }
 
-            if (pBody->IsEncapsulatedRFC822Message())
+            // Load the encapsulated RFC message, only if we are not requesting MIME.
+            if (pBody->IsEncapsulatedRFC822Message() && !oPart.GetShowMime())
             {
                try
                {
@@ -366,7 +375,7 @@ namespace HM
       if (!oPart.GetName().IsEmpty())
       {
          String sMimePart;
-         pBodyPart  = GetBodyPartByRecursiveIdentifier_(pBodyPart, oPart.GetName());
+         pBodyPart = GetBodyPartByRecursiveIdentifier_(pBodyPart, oPart);
 
          if (!pBodyPart)
             return pOutBuf;
@@ -380,7 +389,7 @@ namespace HM
          // Add HEADER
          AnsiString sHeaderContents = pBodyPart->GetHeaderContents();
          GetBytesToSend_(sHeaderContents.GetLength(), oPart, iByteStart, iByteCount);
-         sHeaderContents.Mid(iByteStart, iByteCount);
+         sHeaderContents = sHeaderContents.Mid(iByteStart, iByteCount);
          pOutBuf->Add((BYTE*) sHeaderContents.GetBuffer(0), sHeaderContents.GetLength());
       }      
       else if (oPart.GetShowBodyText())
@@ -418,10 +427,14 @@ namespace HM
          int iSize = FileUtilities::FileSize(messageFileName);
          GetBytesToSend_(iSize, oPart, iByteStart, iByteCount);
 
-         BYTE *pBuf = new BYTE[iByteCount];
-         FileUtilities::ReadFileToBuf(messageFileName, pBuf, iByteStart, iByteCount);
-         pOutBuf->Add(pBuf, iByteCount);
-         delete [] pBuf;
+         // Read the message, only if there is a need to.
+         if (iByteCount > 0)
+         {
+            BYTE *pBuf = new BYTE[iByteCount];
+            FileUtilities::ReadFileToBuf(messageFileName, pBuf, iByteStart, iByteCount);
+            pOutBuf->Add(pBuf, iByteCount);
+            delete [] pBuf;
+         }
       }
       else if (oPart.GetShowBodyHeaderFields())
       {
@@ -463,9 +476,7 @@ namespace HM
          sResponse += "\r\n";
 
          GetBytesToSend_(sResponse.GetLength(), oPart, iByteStart, iByteCount);
-         sResponse.Mid(iByteStart, iByteCount);
-
-         AnsiString sAS = sResponse;
+         AnsiString sAS = sResponse.Mid(iByteStart, iByteCount);
          pOutBuf->Add((BYTE*) sAS.GetBuffer(0), sAS.GetLength());
 
       }
@@ -523,9 +534,7 @@ namespace HM
          sResponse += "\r\n";
 
          GetBytesToSend_(sResponse.GetLength(), oPart, iByteStart, iByteCount);
-         sResponse.Mid(iByteStart,iByteCount);
-
-         AnsiString sAS = sResponse;
+         AnsiString sAS = sResponse.Mid(iByteStart, iByteCount);
          pOutBuf->Add((BYTE*) sAS.GetBuffer(0), sAS.GetLength());
 
       }

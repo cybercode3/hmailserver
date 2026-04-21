@@ -85,11 +85,10 @@ namespace HM
       }
 
 
-      // Send a copy of this email.
+      // Reply to the email
       std::shared_ptr<Message> pMsg = std::shared_ptr<Message>(new Message());
 
       pMsg->SetState(Message::Delivering);
-      pMsg->SetFromAddress(recipientAccount->GetAddress());
 
       const String newFileName = PersistentMessage::GetFileName(pMsg);
 

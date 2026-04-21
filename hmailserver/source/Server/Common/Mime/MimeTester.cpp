@@ -210,6 +210,143 @@ namespace HM
          return true;
       }
 
+      AnsiString QPEncode(const char* input, bool addLineBreak = false)
+      {
+         MimeCodeQP coder;
+         if (addLineBreak)
+            coder.AddLineBreak(true);
+         coder.SetInput(input, (int)strlen(input), true);
+         AnsiString output;
+         coder.GetOutput(output);
+         return output;
+      }
+
+      bool TestQPEncodeEmpty()
+      {
+         return QPEncode("") == "";
+      }
+
+      bool TestQPEncodeSinglePrintableChar()
+      {
+         return QPEncode("a") == "a";
+      }
+
+      bool TestQPEncodeEqualsSign()
+      {
+         return QPEncode("=") == "=3D";
+      }
+
+      bool TestQPEncodeNonAscii()
+      {
+         return QPEncode("\x80") == "=80";
+      }
+
+      bool TestQPEncodeCRLF()
+      {
+         return QPEncode("\r\n") == "\r\n";
+      }
+
+      bool TestQPEncodeBareLF()
+      {
+         return QPEncode("\n") == "\n";
+      }
+
+      bool TestQPEncodeTrailingSpace()
+      {
+         return QPEncode("hello ") == "hello=20";
+      }
+
+      bool TestQPEncodeTrailingTab()
+      {
+         return QPEncode("hello\t") == "hello=09";
+      }
+
+      bool TestQPEncodeSpaceBeforeHardBreak()
+      {
+         return QPEncode("hello \r\n") == "hello=20\r\n";
+      }
+
+      bool TestQPEncodeTabBeforeHardBreak()
+      {
+         return QPEncode("hello\t\r\n") == "hello=09\r\n";
+      }
+
+      bool TestQPEncodeSmtpDotQuoted()
+      {
+         return QPEncode("\r\n.\r\n") == "\r\n=2E\r\n";
+      }
+
+      bool TestQPEncodeDotNotQuotedMidLine()
+      {
+         return QPEncode("a.b") == "a.b";
+      }
+
+      bool TestQPEncodeDotAtEndOfInputNotQuoted()
+      {
+         return QPEncode("a\r\n.") == "a\r\n.";
+      }
+
+      bool TestQPEncode75CharsNoSoftBreak()
+      {
+         AnsiString input(75, 'a');
+         input += "\r\n";
+         AnsiString output = QPEncode(input.c_str(), true);
+         return output.find("=\r\n") == AnsiString::npos;
+      }
+
+      bool TestQPEncode76CharsTriggersSoftBreak()
+      {
+         AnsiString input(76, 'a');
+         AnsiString output = QPEncode(input.c_str(), true);
+         return output.find("=\r\n") != AnsiString::npos;
+      }
+
+      bool TestQPEncodeNoTrailingWhitespaceBeforeSoftBreakHighCostNextChar()
+      {
+         AnsiString input(73, 'a');
+         input += "  b\r\n";
+
+         MimeCodeQP coder;
+         coder.AddLineBreak(true);
+         coder.SetInput(input.c_str(), (int)input.size(), true);
+
+         AnsiString output;
+         coder.GetOutput(output);
+
+         size_t softBreakPos = output.find("=\r\n");
+         if (softBreakPos == AnsiString::npos)
+            return false;
+
+         char charBeforeSoftBreak = output[(int)(softBreakPos - 1)];
+         if (charBeforeSoftBreak == ' ' || charBeforeSoftBreak == '\t')
+            return false;
+
+         return true;
+      }
+
+      bool TestQPEncodeNoTrailingWhitespaceBeforeSoftBreak()
+      {
+         AnsiString input(74, 'a');
+         input += " b\r\n";
+
+         MimeCodeQP coder;
+         coder.AddLineBreak(true);
+         coder.SetInput(input.c_str(), (int)input.size(), true);
+
+         AnsiString output;
+         coder.GetOutput(output);
+
+         size_t softBreakPos = output.find("=\r\n");
+         if (softBreakPos == AnsiString::npos)
+            return false;
+
+         char charBeforeSoftBreak = output[(int)(softBreakPos - 1)];
+         if (charBeforeSoftBreak == ' ' || charBeforeSoftBreak == '\t')
+            return false;
+
+         return true;
+      }
+
       bool TestMultipartWithPartBoundaryMissingCrlf()
       {
          const char* multipartWithPartBoundaryMissingCrlf =
@@ -237,6 +374,137 @@ namespace HM
 
          return true;
       }
+      bool TestGetParameterWithQuotedSemicolon()
+      {
+         MimeField field;
+         const char* line = "Content-Disposition: attachment; filename=\"semi;colon.dll\"\r\n";
+         field.Load(line, strlen(line), false);
+
+         AnsiString value;
+         if (!field.GetParameter("filename", value))
+            return false;
+         return value == "semi;colon.dll";
+      }
+
+      bool TestGetParameterNeighboringParamUnaffectedByQuotedSemicolon()
+      {
+         MimeField field;
+         const char* line = "Content-Disposition: attachment; filename=\"semi;colon.dll\"; size=42\r\n";
+         field.Load(line, strlen(line), false);
+
+         AnsiString filename;
+         if (!field.GetParameter("filename", filename))
+            return false;
+         if (filename != "semi;colon.dll")
+            return false;
+
+         AnsiString size;
+         if (!field.GetParameter("size", size))
+            return false;
+         return size == "42";
+      }
+
+      bool TestRemoveParameterRemovesSimpleParam()
+      {
+         MimeField field;
+         const char* line = "Content-Type: text/plain; charset=utf-8; name=\"test.txt\"\r\n";
+         field.Load(line, strlen(line), false);
+
+         field.RemoveParameter("name");
+
+         AnsiString val;
+         if (field.GetParameter("name", val))
+            return false;
+
+         AnsiString charset;
+         if (!field.GetParameter("charset", charset))
+            return false;
+         return charset == "utf-8";
+      }
+
+      bool TestRemoveParameterRemovesRfc2231Continuations()
+      {
+         MimeField field;
+         const char* line = "Content-Disposition: attachment; filename*0=\"long\"; filename*1=\"name.dll\"\r\n";
+         field.Load(line, strlen(line), false);
+
+         field.RemoveParameter("filename");
+         field.SetParameter("filename", "new.dll");
+
+         AnsiString val;
+         if (!field.GetParameter("filename", val))
+            return false;
+         return val == "new.dll";
+      }
+
+      bool TestSetFileNameReplacesRfc2231ContinuationFilename()
+      {
+         MimeHeader header;
+         const char* headers =
+            "Content-Type: application/octet-stream\r\n"
+            "Content-Disposition: attachment; filename*0=\"oldpart0\"; filename*1=\"oldpart1\"\r\n"
+            "\r\n";
+         header.Load(headers, strlen(headers));
+
+         header.SetFileName(L"replacement.dll");
+
+         string result = header.GetParameter(CMimeConst::ContentDisposition(), CMimeConst::Filename());
+
+         if (result == "oldpart0" || result == "oldpart1")
+            return false;
+
+         return result.find("replacement.dll") != string::npos;
+      }
+
+      bool TestSetFileNameReplacesEncodedFilenameVariant()
+      {
+         MimeHeader header;
+         const char* headers =
+            "Content-Type: application/octet-stream\r\n"
+            "Content-Disposition: attachment; filename*=UTF-8''old%20name.dll\r\n"
+            "\r\n";
+         header.Load(headers, strlen(headers));
+
+         header.SetFileName(L"replacement.dll");
+
+         string result = header.GetParameter(CMimeConst::ContentDisposition(), CMimeConst::Filename());
+
+         if (result.find("old") != string::npos)
+            return false;
+
+         return result.find("replacement.dll") != string::npos;
+      }
+
+      bool TestSetFileNameReplacesContentTypeNameVariant()
+      {
+         MimeHeader header;
+         const char* headers =
+            "Content-Type: application/octet-stream; name*=UTF-8''old%20name.dll\r\n"
+            "\r\n";
+         header.Load(headers, strlen(headers));
+
+         header.SetFileName(L"replacement.dll");
+
+         string result = header.GetParameter(CMimeConst::ContentType(), CMimeConst::Name());
+
+         if (result.find("old") != string::npos)
+            return false;
+
+         return result.find("replacement.dll") != string::npos;
+      }
+
+      bool TestRfc2231ApostropheInUnquotedValue()
+      {
+         MimeField field;
+         const char* line = "Content-Disposition: attachment; filename*=UTF-8''hello.dll\r\n";
+         field.Load(line, strlen(line), false);
+
+         AnsiString val;
+         if (!field.GetParameter("filename", val))
+            return false;
+         return val.Find("hello.dll") >= 0;
+      }
+
    }
 
    MimeTester::MimeTester(void)
@@ -267,113 +535,82 @@ namespace HM
 
       if (!TestMultipartWithPartBoundaryMissingCrlf())
          throw;
-   }
-
-
-
-   bool 
-   MimeTester::TestFolder(const String &sFolderName)
-   {
-      return true;
-
-      String sCleanFolder = sFolderName;
-      if (sCleanFolder.Right(1) == _T("\\"))
-         sCleanFolder = sCleanFolder.Left(sCleanFolder.GetLength() - 1);
-
-      if (sCleanFolder.Right(1) != _T("\\"))
-         sCleanFolder += "\\";
-
-      String sWildCard = sCleanFolder + "*.*";
-
-      // Locate first match
-      WIN32_FIND_DATA ffData;
-      HANDLE hFileFound = FindFirstFile(sWildCard, &ffData);
-
-      if (hFileFound == INVALID_HANDLE_VALUE)
-         return FALSE;
-
-      while (hFileFound && FindNextFile(hFileFound, &ffData))
-      {
-         String sFullPath = sCleanFolder + ffData.cFileName;
-
-         if (ffData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) 
-         {
-            if( (_tcscmp(ffData.cFileName, _T(".")) != 0) &&
-               (_tcscmp(ffData.cFileName, _T("..")) != 0) ) 
-            {
-               if( !TestFolder(sFullPath) )
-                  return false;
-            }
-
-         }
-         else
-         { 
-            TestLoadFile(sFullPath);
-         }
-      }
-
-      FindClose(hFileFound);
-
-      return true;
-   
-   }
-
-   void 
-   MimeTester::TestLoadFile(const String &sFilename)
-   {
-	   try
-	   {
-         OutputDebugString("Loading file " + sFilename +"\n");
-
-		   std::shared_ptr<Message> pMessage = std::shared_ptr<Message>(new Message(false));
-
-		   std::shared_ptr<MessageData> pMsgData = std::shared_ptr<MessageData>(new MessageData());
-		   pMsgData->LoadFromMessage(sFilename, pMessage);
-	   }
-	   catch (...)
-	   {
-		   assert(0);
-		   MessageBox(0,_T("ERROR"), _T("ERROR"), 0);
-		   throw;
-	   }
-   }
-
-   void 
-   MimeTester::TestFile(const String &sFilename)
-   {
-      try
-      {
-         std::shared_ptr<Message> pMessage = std::shared_ptr<Message>(new Message(false));
-         
-         std::shared_ptr<MessageData> pMsgData = std::shared_ptr<MessageData>(new MessageData());
-         pMsgData->LoadFromMessage(sFilename, pMessage);
-
-         String sOutput = "hMailServer: [MimeTester] --> "; 
-         sOutput += sFilename + " --> "; 
-         sOutput += pMsgData->GetSubject();
-         sOutput += "\n";
-         OutputDebugString(sOutput);
-
-         // Add a message header
-         pMsgData->SetFieldValue("X-MyHeader", "ValueOfMyHeader");
-
-         // New message
-         std::shared_ptr<Message> pNewMessage = std::shared_ptr<Message>(new Message());
-         std::shared_ptr<Account> account;
-         String newFileName = PersistentMessage::GetFileName(account, pNewMessage);
-
-         pMsgData->Write(newFileName);
-
-         // Delete the new message.
-         FileUtilities::DeleteFile(newFileName);
-
-      }
-      catch (...)
-      {
-         assert(0);
-         MessageBox(0,_T("ERROR"), _T("ERROR"), 0);
+      if (!TestQPEncodeEmpty())
          throw;
-      }
+
+      if (!TestQPEncodeSinglePrintableChar())
+         throw;
+
+      if (!TestQPEncodeEqualsSign())
+         throw;
+
+      if (!TestQPEncodeNonAscii())
+         throw;
+
+      if (!TestQPEncodeCRLF())
+         throw;
+
+      if (!TestQPEncodeBareLF())
+         throw;
+
+      if (!TestQPEncodeTrailingSpace())
+         throw;
+
+      if (!TestQPEncodeTrailingTab())
+         throw;
+
+      if (!TestQPEncodeSpaceBeforeHardBreak())
+         throw;
+
+      if (!TestQPEncodeTabBeforeHardBreak())
+         throw;
+
+      if (!TestQPEncodeSmtpDotQuoted())
+         throw;
+
+      if (!TestQPEncodeDotNotQuotedMidLine())
+         throw;
+
+      if (!TestQPEncodeDotAtEndOfInputNotQuoted())
+         throw;
+
+      if (!TestQPEncode75CharsNoSoftBreak())
+         throw;
+
+      if (!TestQPEncode76CharsTriggersSoftBreak())
+         throw;
+
+      if (!TestQPEncodeNoTrailingWhitespaceBeforeSoftBreakHighCostNextChar())
+         throw;
+
+      if (!TestQPEncodeNoTrailingWhitespaceBeforeSoftBreak())
+         throw;
+
+      if (!TestGetParameterWithQuotedSemicolon())
+         throw;
+
+      if (!TestGetParameterNeighboringParamUnaffectedByQuotedSemicolon())
+         throw;
+
+      if (!TestRemoveParameterRemovesSimpleParam())
+         throw;
+
+      if (!TestRemoveParameterRemovesRfc2231Continuations())
+         throw;
+
+      if (!TestSetFileNameReplacesRfc2231ContinuationFilename())
+         throw;
+
+      if (!TestSetFileNameReplacesEncodedFilenameVariant())
+         throw;
+
+      if (!TestSetFileNameReplacesContentTypeNameVariant())
+         throw;
+
+      if (!TestRfc2231ApostropheInUnquotedValue())
+         throw;
+
    }
+
 
 }

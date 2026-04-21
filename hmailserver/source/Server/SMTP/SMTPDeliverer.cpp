@@ -277,10 +277,9 @@ namespace HM
 
       sErrMsg.Replace(_T("%MACRO_RECIPIENTS%"), sCollectedErrors);
 
-      // Send a copy of this email.
+      // Submit an error log (delivery failed)
       std::shared_ptr<Message> pMsg = std::shared_ptr<Message>(new Message());
       pMsg->SetState(Message::Delivering);
-      pMsg->SetFromAddress("");
 
       const String newFileName = PersistentMessage::GetFileName(pMsg);
 
@@ -288,7 +287,6 @@ namespace HM
       pNewMsgData->LoadFromMessage(newFileName, pMsg);
 
       // Required headers
-      pNewMsgData->SetReturnPath("");
       pNewMsgData->GenerateMessageID();
       pNewMsgData->SetSentTime(Time::GetCurrentMimeDate());
 

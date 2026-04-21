@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using hMailServer;
@@ -35,5 +35,27 @@ namespace RegressionTests.IMAP
          Assert.IsTrue(flags2.Contains(@"* 1 FETCH (FLAGS (\Deleted) UID 1)"), flags2);
          
       }
+      [Test]
+      [Description("Bug: SendCachedNotifications passed lastExists to SendRECENT_ instead of lastRecent")]
+      public void NoopRecentCountReflectsRecentMessagesNotExistsCount()
+      {
+         var account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "test@test.com", "test");
+
+         var sim = new ImapClientSimulator();
+         sim.ConnectAndLogon(account.Address, "test");
+         sim.SelectFolder("INBOX");
+
+         SmtpClientSimulator.StaticSend(account.Address, account.Address, "Test 1", "Body 1");
+         SmtpClientSimulator.StaticSend(account.Address, account.Address, "Test 2", "Body 2");
+
+         Pop3ClientSimulator.AssertMessageCount(account.Address, "test", 2);
+
+         var response = sim.NOOP();
+         Assert.IsTrue(response.Contains("* 2 EXISTS"), response);
+         Assert.IsTrue(response.Contains("* 0 RECENT"), response);
+
+         sim.Disconnect();
+      }
+
    }
 }

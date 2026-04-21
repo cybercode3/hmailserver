@@ -18,7 +18,8 @@ namespace HM
       show_body_header_fields_NOT(false),
       show_body_header_(false),
       show_body_text_(false),
-      show_body_full_(false)
+      show_body_full_(false),
+      show_mime_(false)
    {
 
    }
@@ -384,7 +385,9 @@ namespace HM
          if (lTemp >= 0)
          {
             oPart.SetShowBodyHeader(true);
-            
+
+            oPart.SetShowMime(true);
+
             String sBefore = sBody.Mid(0, lTemp);
             String sAfter = sBody.Mid(lTemp + 7);
             sBody = sBefore + sAfter;
