@@ -86,9 +86,15 @@ namespace HM
    {
       if (GetConnectionSecurity() == CSSTARTTLSOptional)
       {
-         for(std::shared_ptr<MessageRecipient> recipient : recipients_)
+         for (const std::shared_ptr<MessageRecipient>& recipient : recipients_)
             recipient->SetDeliveryResult(MessageRecipient::ResultOptionalHandshakeFailed);
+
+         EnqueueDisconnect();
+         return;
       }
+
+      UpdateAllRecipientsWithError_(0, "TLS handshake failed.", true);
+      EnqueueDisconnect();
    }
 
    AnsiString 
