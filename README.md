@@ -43,7 +43,7 @@ Create an environment variable named hMailServerLibs pointing at a folder where 
 Building OpenSSL
 ----------------
 1. Download OpenSSL 3.5.x from http://www.openssl.org/source/ and put it into %hMailServerLibs%\<OpenSSL-Version>.
-   You should now have a folder named %hMailServerLibs%\<OpenSSL-version>, for example C:\Dev\hMailLibs\openssl-3.5.6
+   You should now have a folder named %hMailServerLibs%\<OpenSSL-version>, for example C:\Dev\hMailLibs\openssl-3.5.7
 2. Start a x64 Native Tools Command Prompt for VS2019.
 3. Change dir to %hMailServerLibs%\<OpenSSL-version>.
 3. Run the following commands:
@@ -58,8 +58,8 @@ Building OpenSSL
 
 Building PostgreSQL
 -------------------
-1. Download PostgreSQL 18.3 source from https://www.postgresql.org/ftp/source/v18.3/ and put it into %hMailServerLibs%\postgresql-18.3.
-   You should now have a folder named %hMailServerLibs%\postgresql-18.3, for example C:\Dev\hMailLibs\postgresql-18.3
+1. Download PostgreSQL 18.4 source from https://www.postgresql.org/ftp/source/v18.4/ and put it into %hMailServerLibs%\postgresql-18.4.
+   You should now have a folder named %hMailServerLibs%\postgresql-18.4, for example C:\Dev\hMailLibs\postgresql-18.4
 2. Download winflexbison from https://github.com/lexxmark/winflexbison/releases, extract it, and add the folder to `%PATH%`.
 3. Install Python dependencies: `py -m pip install meson ninja`
 4. Start a x64 Native Tools Command Prompt for VS2019.
@@ -68,8 +68,8 @@ Building PostgreSQL
 
    <pre>
    set hMailServerLibs=%cd%
-   cd postgresql-18.3
-   meson setup builddir -Dssl=openssl "-Dextra_include_dirs=%hMailServerLibs%\openssl-3.5.6\out64\include" "-Dextra_lib_dirs=%hMailServerLibs%\openssl-3.5.6\out64\lib"
+   cd postgresql-18.4
+   meson setup builddir -Dssl=openssl "-Dextra_include_dirs=%hMailServerLibs%\openssl-3.5.7\out64\include" "-Dextra_lib_dirs=%hMailServerLibs%\openssl-3.5.7\out64\lib"
    meson compile -C builddir src/interfaces/libpq/libpq:shared_library
    </pre>
 
