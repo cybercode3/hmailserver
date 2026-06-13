@@ -73,7 +73,7 @@ namespace HM
 
       auto messages = MessagesContainer::Instance()->GetMessages(current_folder->GetAccountID(), current_folder->GetID());
 
-      std::vector<int> expunged_indexes;
+      std::vector<__int64> expunged_indexes;
       std::vector<__int64> expunged_message_ids;
       __int64 message_database_id = pOldMessage->GetID();
 
@@ -121,10 +121,10 @@ namespace HM
       ClearLastDestinationMessageID();
 
       String response;
-      for (int index : expunged_indexes)
+      for (__int64 index : expunged_indexes)
       {
          String line;
-         line.Format(_T("* %d EXPUNGE\r\n"), index);
+         line.Format(_T("* %I64d EXPUNGE\r\n"), index);
          response += line;
       }
 
@@ -141,14 +141,13 @@ namespace HM
                recent_messages.erase(recent_it);
          }
 
-         // Notify using message IDs (not sequence numbers).
-         // Fixes E0289/C2665: ctor expects vector<__int64>.
+         // EXPUNGE notifications carry message sequence numbers, not database IDs.
          std::shared_ptr<ChangeNotification> notification =
             std::make_shared<ChangeNotification>(
                current_folder->GetAccountID(),
                current_folder->GetID(),
                ChangeNotification::NotificationMessageDeleted,
-               expunged_message_ids);
+               expunged_indexes);
 
          Application::Instance()->GetNotificationServer()->SendNotification(pConnection->GetNotificationClient(), notification);
       }
