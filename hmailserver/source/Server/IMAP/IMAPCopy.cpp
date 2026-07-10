@@ -83,14 +83,14 @@ namespace HM
       if (!pNewMessage)
          return IMAPResult(IMAPResult::ResultBad, "Failed to copy message");
 
-      last_destination_message_id_ = pNewMessage->GetID();
-
       // Check if the user has access to set the Seen flag, otherwise 
       if (!pConnection->CheckPermission(pFolder, ACLPermission::PermissionWriteSeen))
          pNewMessage->SetFlagSeen(false);  
 
       if (!PersistentMessage::SaveObject(pNewMessage))
          return IMAPResult(IMAPResult::ResultBad, "Failed to save copy of message.");
+
+      last_destination_message_id_ = pNewMessage->GetID();
 
       MessagesContainer::Instance()->SetFolderNeedsRefresh(pFolder->GetID());
 
