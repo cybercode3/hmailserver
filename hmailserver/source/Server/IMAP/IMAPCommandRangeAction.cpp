@@ -2,6 +2,9 @@
 // http://www.hmailserver.com
 
 #include "stdafx.h"
+
+#include <algorithm>
+
 #include "IMAPCommandRangeAction.h"
 #include "IMAPConnection.h"
 #include "../Common/BO/Messages.h"
@@ -62,6 +65,9 @@ namespace HM
                if (sSecondPart != _T("*"))
                   lEndDBID = _ttoi(sSecondPart);
 
+               if (lStartDBID > lEndDBID)
+                  std::swap(lStartDBID, lEndDBID);
+
                std::vector<std::shared_ptr<Message>> messages = pConnection->GetCurrentFolder()->GetMessages()->GetCopy();
 
                int index = 0;
@@ -120,6 +126,9 @@ namespace HM
                int lEndIndex = -1;
                if (sSecondPart != _T("*"))
                   lEndIndex = _ttoi(sSecondPart);
+
+               if (lEndIndex != -1 && lStartIndex > lEndIndex)
+                  std::swap(lStartIndex, lEndIndex);
 
                auto vecMessages = pConnection->GetCurrentFolder()->GetMessages()->GetCopy();
                
