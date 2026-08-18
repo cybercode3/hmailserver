@@ -88,7 +88,7 @@ namespace HM
 
       // First delete the currently existing items.
       if (!DeleteAll())
-         return true;
+         return false;
 
       XNode *pCollNode = pBackupNode->GetChild(GetCollectionName());
 
