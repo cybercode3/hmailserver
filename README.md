@@ -50,7 +50,7 @@ Building OpenSSL
 
   <pre>
   SET CFLAGS=-DOPENSSL_TLS_SECURITY_LEVEL=0
-  Perl Configure no-asm VC-WIN64A --prefix=%cd%\out64 --openssldir=%cd%\out64 -D_WIN32_WINNT=0x600 --api=1.1.1 no-deprecated
+  Perl Configure no-asm VC-WIN64A --prefix=%cd%\out64 --openssldir=%cd%\out64 -D_WIN32_WINNT=0x600 --api=1.1.1
   nmake clean
   nmake install_sw
   </pre>
