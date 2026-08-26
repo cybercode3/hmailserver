@@ -24,6 +24,7 @@ if($action == "save")
     $obSettings->IMAPMasterUser  = hmailGetVar("IMAPMasterUser","");
    
     $obSettings->IMAPHierarchyDelimiter = hmailGetVar("IMAPHierarchyDelimiter","");
+    $obSettings->CreateDefaultSpecialUseFoldersEnabled = hmailGetVar("CreateDefaultSpecialUseFoldersEnabled",0);
 }
 
 $welcomeimap = $obSettings->WelcomeIMAP;     
@@ -40,6 +41,7 @@ $IMAPSASLInitialResponseEnabled  = $obSettings->IMAPSASLInitialResponseEnabled;
 $IMAPMasterUser  = $obSettings->IMAPMasterUser;
 
 $IMAPHierarchyDelimiter = $obSettings->IMAPHierarchyDelimiter;
+$CreateDefaultSpecialUseFoldersEnabled = $obSettings->CreateDefaultSpecialUseFoldersEnabled;
 
 ?>
 
@@ -86,6 +88,7 @@ $IMAPHierarchyDelimiter = $obSettings->IMAPHierarchyDelimiter;
                PrintCheckboxRow("IMAPSASLPlainEnabled", "SASL Plain", $IMAPSASLPlainEnabled);
                PrintCheckboxRow("IMAPSASLInitialResponseEnabled", "SASL Initial Client Response", $IMAPSASLInitialResponseEnabled);
                PrintPropertyEditRow("IMAPMasterUser", "IMAP Master user", $IMAPMasterUser);
+               PrintCheckboxRow("CreateDefaultSpecialUseFoldersEnabled", "Create default special-use folders (Sent, Drafts, Trash, Junk) for new accounts", $CreateDefaultSpecialUseFoldersEnabled);
             ?>
             
       		<tr>

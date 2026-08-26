@@ -1110,29 +1110,25 @@ STDMETHODIMP InterfaceSettings::get_Backup(IInterfaceBackupSettings **pVal)
 
 STDMETHODIMP InterfaceSettings::get_Directories(IInterfaceDirectories **pVal)
 {
-   try
+   return COMError::Guard("InterfaceSettings::get_Directories", [&]() -> HRESULT
    {
       if (!config_)
          return GetAccessDenied();
 
       if (!GetIsServerAdmin())
          return authentication_->GetAccessDenied();
-   
+
       CComObject<InterfaceDirectories>* pItem = new CComObject<InterfaceDirectories>();
-   
+
       ini_file_settings_->LoadSettings();
-   
+
       pItem->SetAuthentication(authentication_);
       pItem->LoadSettings(ini_file_settings_);
       pItem->AddRef();
       *pVal = pItem;
-   
+
       return S_OK;
-   }
-   catch (...)
-   {
-      return COMError::GenerateGenericMessage();
-   }
+   });
 }
 
 STDMETHODIMP InterfaceSettings::get_AntiSpam(IInterfaceAntiSpam **pVal)
@@ -2647,6 +2643,38 @@ STDMETHODIMP InterfaceSettings::put_IPv6PreferredEnabled(VARIANT_BOOL newVal)
 
       config_->SetIPv6Preferred(newVal == VARIANT_TRUE);
 
+      return S_OK;
+   }
+   catch (...)
+   {
+      return COMError::GenerateGenericMessage();
+   }
+}
+
+STDMETHODIMP InterfaceSettings::get_CreateDefaultSpecialUseFoldersEnabled(VARIANT_BOOL *pVal)
+{
+   try
+   {
+      if (!config_)
+         return GetAccessDenied();
+
+      *pVal = config_->GetCreateDefaultSpecialUseFolders() ? VARIANT_TRUE : VARIANT_FALSE;
+      return S_OK;
+   }
+   catch (...)
+   {
+      return COMError::GenerateGenericMessage();
+   }
+}
+
+STDMETHODIMP InterfaceSettings::put_CreateDefaultSpecialUseFoldersEnabled(VARIANT_BOOL newVal)
+{
+   try
+   {
+      if (!config_)
+         return GetAccessDenied();
+
+      config_->SetCreateDefaultSpecialUseFolders(newVal == VARIANT_TRUE);
       return S_OK;
    }
    catch (...)

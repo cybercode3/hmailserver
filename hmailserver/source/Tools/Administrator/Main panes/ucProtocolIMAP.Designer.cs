@@ -2,12 +2,12 @@ namespace hMailServer.Administrator
 {
     partial class ucProtocolIMAP
     {
-        /// <summary> 
+        /// <summary>
         /// Required designer variable.
         /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary> 
+        /// <summary>
         /// Clean up any resources being used.
         /// </summary>
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
@@ -22,8 +22,8 @@ namespace hMailServer.Administrator
 
         #region Component Designer generated code
 
-        /// <summary> 
-        /// Required method for Designer support - do not modify 
+        /// <summary>
+        /// Required method for Designer support - do not modify
         /// the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent()
@@ -43,6 +43,7 @@ namespace hMailServer.Administrator
          this.tabPage2 = new System.Windows.Forms.TabPage();
          this.labelIMAPMasterUser = new System.Windows.Forms.Label();
          this.textIMAPMasterUser = new hMailServer.Shared.ucText();
+         this.checkCreateDefaultSpecialUseFolders = new hMailServer.Administrator.Controls.ucCheckbox();
          this.checkEnableIMAPInitialResponse = new hMailServer.Administrator.Controls.ucCheckbox();
          this.checkEnableIMAPPlain = new hMailServer.Administrator.Controls.ucCheckbox();
          this.labelHierarchyDelimiter = new System.Windows.Forms.Label();
@@ -58,9 +59,9 @@ namespace hMailServer.Administrator
          this.tabPage3.SuspendLayout();
          this.tabPage2.SuspendLayout();
          this.SuspendLayout();
-         // 
+         //
          // tabControl
-         // 
+         //
          this.tabControl.Controls.Add(this.tabPage1);
          this.tabControl.Controls.Add(this.tabPage3);
          this.tabControl.Controls.Add(this.tabPage2);
@@ -70,9 +71,9 @@ namespace hMailServer.Administrator
          this.tabControl.SelectedIndex = 0;
          this.tabControl.Size = new System.Drawing.Size(497, 346);
          this.tabControl.TabIndex = 0;
-         // 
+         //
          // tabPage1
-         // 
+         //
          this.tabPage1.Controls.Add(this.textWelcomeMessage);
          this.tabPage1.Controls.Add(this.labelWelcome);
          this.tabPage1.Controls.Add(this.labelOther);
@@ -86,9 +87,9 @@ namespace hMailServer.Administrator
          this.tabPage1.TabIndex = 0;
          this.tabPage1.Text = "General";
          this.tabPage1.UseVisualStyleBackColor = true;
-         // 
+         //
          // textWelcomeMessage
-         // 
+         //
          this.textWelcomeMessage.Location = new System.Drawing.Point(27, 127);
          this.textWelcomeMessage.Name = "textWelcomeMessage";
          this.textWelcomeMessage.Number = 0;
@@ -96,18 +97,18 @@ namespace hMailServer.Administrator
          this.textWelcomeMessage.Numeric = false;
          this.textWelcomeMessage.Size = new System.Drawing.Size(227, 20);
          this.textWelcomeMessage.TabIndex = 16;
-         // 
+         //
          // labelWelcome
-         // 
+         //
          this.labelWelcome.AutoSize = true;
          this.labelWelcome.Location = new System.Drawing.Point(25, 108);
          this.labelWelcome.Name = "labelWelcome";
          this.labelWelcome.Size = new System.Drawing.Size(97, 13);
          this.labelWelcome.TabIndex = 15;
          this.labelWelcome.Text = "Welcome message";
-         // 
+         //
          // labelOther
-         // 
+         //
          this.labelOther.AutoSize = true;
          this.labelOther.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
          this.labelOther.Location = new System.Drawing.Point(8, 86);
@@ -115,9 +116,9 @@ namespace hMailServer.Administrator
          this.labelOther.Size = new System.Drawing.Size(38, 13);
          this.labelOther.TabIndex = 14;
          this.labelOther.Text = "Other";
-         // 
+         //
          // textMaxIMAPConnections
-         // 
+         //
          this.textMaxIMAPConnections.Location = new System.Drawing.Point(26, 52);
          this.textMaxIMAPConnections.Name = "textMaxIMAPConnections";
          this.textMaxIMAPConnections.Number = 0;
@@ -125,18 +126,18 @@ namespace hMailServer.Administrator
          this.textMaxIMAPConnections.Numeric = true;
          this.textMaxIMAPConnections.Size = new System.Drawing.Size(117, 20);
          this.textMaxIMAPConnections.TabIndex = 13;
-         // 
+         //
          // labelMaxPOP3Connections
-         // 
+         //
          this.labelMaxPOP3Connections.AutoSize = true;
          this.labelMaxPOP3Connections.Location = new System.Drawing.Point(24, 33);
          this.labelMaxPOP3Connections.Name = "labelMaxPOP3Connections";
          this.labelMaxPOP3Connections.Size = new System.Drawing.Size(300, 13);
          this.labelMaxPOP3Connections.TabIndex = 12;
          this.labelMaxPOP3Connections.Text = "Maximum number of simultaneous connections (0 for unlimited)";
-         // 
+         //
          // labelConnections
-         // 
+         //
          this.labelConnections.AutoSize = true;
          this.labelConnections.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
          this.labelConnections.Location = new System.Drawing.Point(8, 8);
@@ -144,9 +145,9 @@ namespace hMailServer.Administrator
          this.labelConnections.Size = new System.Drawing.Size(77, 13);
          this.labelConnections.TabIndex = 11;
          this.labelConnections.Text = "Connections";
-         // 
+         //
          // tabPage3
-         // 
+         //
          this.tabPage3.Controls.Add(this.buttonEditFolders);
          this.tabPage3.Controls.Add(this.textIMAPPublicFolderName);
          this.tabPage3.Controls.Add(this.labelPublicFolderName);
@@ -156,9 +157,9 @@ namespace hMailServer.Administrator
          this.tabPage3.TabIndex = 2;
          this.tabPage3.Text = "Public folders";
          this.tabPage3.UseVisualStyleBackColor = true;
-         // 
+         //
          // buttonEditFolders
-         // 
+         //
          this.buttonEditFolders.Location = new System.Drawing.Point(16, 64);
          this.buttonEditFolders.Name = "buttonEditFolders";
          this.buttonEditFolders.Size = new System.Drawing.Size(100, 25);
@@ -166,9 +167,9 @@ namespace hMailServer.Administrator
          this.buttonEditFolders.Text = "Edit folders";
          this.buttonEditFolders.UseVisualStyleBackColor = true;
          this.buttonEditFolders.Click += new System.EventHandler(this.buttonEditFolders_Click);
-         // 
+         //
          // textIMAPPublicFolderName
-         // 
+         //
          this.textIMAPPublicFolderName.Location = new System.Drawing.Point(16, 32);
          this.textIMAPPublicFolderName.Name = "textIMAPPublicFolderName";
          this.textIMAPPublicFolderName.Number = 0;
@@ -176,18 +177,19 @@ namespace hMailServer.Administrator
          this.textIMAPPublicFolderName.Numeric = false;
          this.textIMAPPublicFolderName.Size = new System.Drawing.Size(139, 20);
          this.textIMAPPublicFolderName.TabIndex = 22;
-         // 
+         //
          // labelPublicFolderName
-         // 
+         //
          this.labelPublicFolderName.AutoSize = true;
          this.labelPublicFolderName.Location = new System.Drawing.Point(14, 13);
          this.labelPublicFolderName.Name = "labelPublicFolderName";
          this.labelPublicFolderName.Size = new System.Drawing.Size(94, 13);
          this.labelPublicFolderName.TabIndex = 21;
          this.labelPublicFolderName.Text = "Public folder name";
-         // 
+         //
          // tabPage2
-         // 
+         //
+         this.tabPage2.Controls.Add(this.checkCreateDefaultSpecialUseFolders);
          this.tabPage2.Controls.Add(this.labelIMAPMasterUser);
          this.tabPage2.Controls.Add(this.textIMAPMasterUser);
          this.tabPage2.Controls.Add(this.checkEnableIMAPInitialResponse);
@@ -207,18 +209,18 @@ namespace hMailServer.Administrator
          this.tabPage2.TabIndex = 1;
          this.tabPage2.Text = "Advanced";
          this.tabPage2.UseVisualStyleBackColor = true;
-         // 
+         //
          // labelIMAPMasterUser
-         // 
+         //
          this.labelIMAPMasterUser.AutoSize = true;
          this.labelIMAPMasterUser.Location = new System.Drawing.Point(53, 176);
          this.labelIMAPMasterUser.Name = "labelIMAPMasterUser";
          this.labelIMAPMasterUser.Size = new System.Drawing.Size(91, 13);
          this.labelIMAPMasterUser.TabIndex = 27;
          this.labelIMAPMasterUser.Text = "IMAP Master user";
-         // 
+         //
          // textIMAPMasterUser
-         // 
+         //
          this.textIMAPMasterUser.Location = new System.Drawing.Point(56, 192);
          this.textIMAPMasterUser.Name = "textIMAPMasterUser";
          this.textIMAPMasterUser.Number = 0;
@@ -226,9 +228,19 @@ namespace hMailServer.Administrator
          this.textIMAPMasterUser.Numeric = false;
          this.textIMAPMasterUser.Size = new System.Drawing.Size(154, 20);
          this.textIMAPMasterUser.TabIndex = 26;
-         // 
+         //
+         // checkCreateDefaultSpecialUseFolders
+         //
+         this.checkCreateDefaultSpecialUseFolders.AutoSize = true;
+         this.checkCreateDefaultSpecialUseFolders.Location = new System.Drawing.Point(35, 225);
+         this.checkCreateDefaultSpecialUseFolders.Name = "checkCreateDefaultSpecialUseFolders";
+         this.checkCreateDefaultSpecialUseFolders.Size = new System.Drawing.Size(350, 17);
+         this.checkCreateDefaultSpecialUseFolders.TabIndex = 28;
+         this.checkCreateDefaultSpecialUseFolders.Text = "Create default special-use folders (Sent, Drafts, Trash, Junk) for new accounts";
+         this.checkCreateDefaultSpecialUseFolders.UseVisualStyleBackColor = true;
+         //
          // checkEnableIMAPInitialResponse
-         // 
+         //
          this.checkEnableIMAPInitialResponse.AutoSize = true;
          this.checkEnableIMAPInitialResponse.Location = new System.Drawing.Point(35, 155);
          this.checkEnableIMAPInitialResponse.Name = "checkEnableIMAPInitialResponse";
@@ -236,9 +248,9 @@ namespace hMailServer.Administrator
          this.checkEnableIMAPInitialResponse.TabIndex = 25;
          this.checkEnableIMAPInitialResponse.Text = "SASL Initial Client Response";
          this.checkEnableIMAPInitialResponse.UseVisualStyleBackColor = true;
-         // 
+         //
          // checkEnableIMAPPlain
-         // 
+         //
          this.checkEnableIMAPPlain.AutoSize = true;
          this.checkEnableIMAPPlain.Location = new System.Drawing.Point(35, 132);
          this.checkEnableIMAPPlain.Name = "checkEnableIMAPPlain";
@@ -246,18 +258,18 @@ namespace hMailServer.Administrator
          this.checkEnableIMAPPlain.TabIndex = 24;
          this.checkEnableIMAPPlain.Text = "SASL Plain";
          this.checkEnableIMAPPlain.UseVisualStyleBackColor = true;
-         // 
+         //
          // labelHierarchyDelimiter
-         // 
+         //
          this.labelHierarchyDelimiter.AutoSize = true;
          this.labelHierarchyDelimiter.Location = new System.Drawing.Point(304, 48);
          this.labelHierarchyDelimiter.Name = "labelHierarchyDelimiter";
          this.labelHierarchyDelimiter.Size = new System.Drawing.Size(93, 13);
          this.labelHierarchyDelimiter.TabIndex = 21;
          this.labelHierarchyDelimiter.Text = "Hierarchy delimiter";
-         // 
+         //
          // comboIMAPHierarchyDelimiter
-         // 
+         //
          this.comboIMAPHierarchyDelimiter.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
          this.comboIMAPHierarchyDelimiter.FormattingEnabled = true;
          this.comboIMAPHierarchyDelimiter.Items.AddRange(new object[] {
@@ -268,9 +280,9 @@ namespace hMailServer.Administrator
          this.comboIMAPHierarchyDelimiter.Name = "comboIMAPHierarchyDelimiter";
          this.comboIMAPHierarchyDelimiter.Size = new System.Drawing.Size(102, 21);
          this.comboIMAPHierarchyDelimiter.TabIndex = 20;
-         // 
+         //
          // labelOther2
-         // 
+         //
          this.labelOther2.AutoSize = true;
          this.labelOther2.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
          this.labelOther2.Location = new System.Drawing.Point(287, 16);
@@ -278,9 +290,9 @@ namespace hMailServer.Administrator
          this.labelOther2.Size = new System.Drawing.Size(38, 13);
          this.labelOther2.TabIndex = 19;
          this.labelOther2.Text = "Other";
-         // 
+         //
          // checkEnableIMAPACL
-         // 
+         //
          this.checkEnableIMAPACL.AutoSize = true;
          this.checkEnableIMAPACL.Location = new System.Drawing.Point(35, 110);
          this.checkEnableIMAPACL.Name = "checkEnableIMAPACL";
@@ -288,9 +300,9 @@ namespace hMailServer.Administrator
          this.checkEnableIMAPACL.TabIndex = 18;
          this.checkEnableIMAPACL.Text = "ACL";
          this.checkEnableIMAPACL.UseVisualStyleBackColor = true;
-         // 
+         //
          // checkEnableIMAPIdle
-         // 
+         //
          this.checkEnableIMAPIdle.AutoSize = true;
          this.checkEnableIMAPIdle.Location = new System.Drawing.Point(35, 87);
          this.checkEnableIMAPIdle.Name = "checkEnableIMAPIdle";
@@ -298,9 +310,9 @@ namespace hMailServer.Administrator
          this.checkEnableIMAPIdle.TabIndex = 17;
          this.checkEnableIMAPIdle.Text = "Idle";
          this.checkEnableIMAPIdle.UseVisualStyleBackColor = true;
-         // 
+         //
          // checkEnableIMAPQuota
-         // 
+         //
          this.checkEnableIMAPQuota.AutoSize = true;
          this.checkEnableIMAPQuota.Location = new System.Drawing.Point(35, 64);
          this.checkEnableIMAPQuota.Name = "checkEnableIMAPQuota";
@@ -308,9 +320,9 @@ namespace hMailServer.Administrator
          this.checkEnableIMAPQuota.TabIndex = 16;
          this.checkEnableIMAPQuota.Text = "Quota";
          this.checkEnableIMAPQuota.UseVisualStyleBackColor = true;
-         // 
+         //
          // labelExtensions
-         // 
+         //
          this.labelExtensions.AutoSize = true;
          this.labelExtensions.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
          this.labelExtensions.Location = new System.Drawing.Point(15, 16);
@@ -318,9 +330,9 @@ namespace hMailServer.Administrator
          this.labelExtensions.Size = new System.Drawing.Size(68, 13);
          this.labelExtensions.TabIndex = 15;
          this.labelExtensions.Text = "Extensions";
-         // 
+         //
          // checkEnableIMAPSort
-         // 
+         //
          this.checkEnableIMAPSort.AutoSize = true;
          this.checkEnableIMAPSort.Location = new System.Drawing.Point(35, 41);
          this.checkEnableIMAPSort.Name = "checkEnableIMAPSort";
@@ -328,9 +340,9 @@ namespace hMailServer.Administrator
          this.checkEnableIMAPSort.TabIndex = 14;
          this.checkEnableIMAPSort.Text = "Sort";
          this.checkEnableIMAPSort.UseVisualStyleBackColor = true;
-         // 
+         //
          // ucProtocolIMAP
-         // 
+         //
          this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
          this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
          this.Controls.Add(this.tabControl);
@@ -374,5 +386,6 @@ namespace hMailServer.Administrator
        private Controls.ucCheckbox checkEnableIMAPPlain;
        private Shared.ucText textIMAPMasterUser;
        private System.Windows.Forms.Label labelIMAPMasterUser;
-    }
+        private hMailServer.Administrator.Controls.ucCheckbox checkCreateDefaultSpecialUseFolders;
+   }
 }

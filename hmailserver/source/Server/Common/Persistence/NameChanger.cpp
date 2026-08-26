@@ -39,7 +39,7 @@ namespace HM
          return false;
 
       // Update accounts...
-      std::vector<std::shared_ptr<Account> > vecAccounts = pDomain->GetAccounts()->GetVector();
+      std::vector<std::shared_ptr<Account> > vecAccounts = pDomain->GetAccounts()->GetSnapshot();
       auto iterAccount = vecAccounts.begin() ;
       auto iterAccountEnd = vecAccounts.end();
 
@@ -60,7 +60,7 @@ namespace HM
       }
 
       // Update aliases...
-      std::vector<std::shared_ptr<Alias> > vecAliases = pDomain->GetAliases()->GetVector();
+      std::vector<std::shared_ptr<Alias> > vecAliases = pDomain->GetAliases()->GetSnapshot();
       auto iterAlias = vecAliases.begin();
       auto iterAliasEnd = vecAliases.end();
 
@@ -82,7 +82,7 @@ namespace HM
       }
 
       // Update lists...
-      std::vector<std::shared_ptr<DistributionList> > vecLists = pDomain->GetDistributionLists()->GetVector();
+      std::vector<std::shared_ptr<DistributionList> > vecLists = pDomain->GetDistributionLists()->GetSnapshot();
       auto iterList = vecLists.begin();
       auto iterListEnd = vecLists.end();
 
@@ -94,7 +94,7 @@ namespace HM
          UpdateDomainName_(sAddress, oldDomainName,newDomainName);
          pList->SetAddress(sAddress);
 
-         std::vector<std::shared_ptr<HM::DistributionListRecipient>> recipients = pList->GetMembers()->GetVector();
+         std::vector<std::shared_ptr<HM::DistributionListRecipient>> recipients = pList->GetMembers()->GetSnapshot();
          for(std::shared_ptr<DistributionListRecipient> recipient : recipients)
          {
             String address = recipient->GetAddress();

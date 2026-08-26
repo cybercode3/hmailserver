@@ -42,56 +42,60 @@ Create an environment variable named hMailServerLibs pointing at a folder where 
 
 Building OpenSSL
 ----------------
-1. Download OpenSSL 3.5.x from http://www.openssl.org/source/ and put it into %hMailServerLibs%\<OpenSSL-Version>.
-   You should now have a folder named %hMailServerLibs%\<OpenSSL-version>, for example C:\Dev\hMailLibs\openssl-3.5.7
-2. Start a x64 Native Tools Command Prompt for VS2019.
-3. Change dir to %hMailServerLibs%\<OpenSSL-version>.
-3. Run the following commands:
+hMailServer currently uses OpenSSL 3.5.8. The helper script downloads a clean OpenSSL 3.5.x source tree, imports the Visual Studio 2019 x64 build environment, and installs the result under `%hMailServerLibs%\openssl-<Version>\out64`.
 
-  <pre>
-  SET CFLAGS=-DOPENSSL_TLS_SECURITY_LEVEL=0
-  Perl Configure no-asm VC-WIN64A --prefix=%cd%\out64 --openssldir=%cd%\out64 -D_WIN32_WINNT=0x600 --api=1.1.1
-  nmake clean
-  nmake install_sw
-  </pre>
+Prerequisites:
+- The environment variable `hMailServerLibs`.
+- Perl on PATH.
+- Visual Studio 2019 with the x64 C++ build tools.
+
+Run from the repository root:
+
+   <pre>
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-openssl.ps1 -Version 3.5.8
+   </pre>
+
+Only OpenSSL 3.5.x is supported by this helper.
 
 
 Building PostgreSQL
 -------------------
-1. Download PostgreSQL 18.4 source from https://www.postgresql.org/ftp/source/v18.4/ and put it into %hMailServerLibs%\postgresql-18.4.
-   You should now have a folder named %hMailServerLibs%\postgresql-18.4, for example C:\Dev\hMailLibs\postgresql-18.4
-2. Download winflexbison from https://github.com/lexxmark/winflexbison/releases, extract it, and add the folder to `%PATH%`.
-3. Install Python dependencies: `py -m pip install meson ninja`
-4. Start a x64 Native Tools Command Prompt for VS2019.
-5. Change dir to %hMailServerLibs%
-6. Run the following commands:
+hMailServer talks to PostgreSQL through libpq. libpq is built by the `libraries\build-pgsql.ps1`
+script, which downloads the requested version into %hMailServerLibs%\postgresql-&lt;Version&gt;,
+generates the `src\tools\msvc\config.pl` that links libpq against a previously built OpenSSL, and
+builds `libpq.dll` / `libpq.lib` into `postgresql-&lt;Version&gt;\Release\libpq`.
+
+Prerequisites:
+- The environment variable hMailServerLibs (see above).
+- A matching OpenSSL build (`openssl-&lt;Version&gt;\out64`) already present - build it first with the OpenSSL script above.
+- Perl (e.g. [Strawberry Perl](https://strawberryperl.com/)) on PATH - required by PostgreSQL's build.pl.
+- Visual Studio 2019 with the x64 C++ build tools.
+
+Run, from the repository root:
 
    <pre>
-   set hMailServerLibs=%cd%
-   cd postgresql-18.4
-   meson setup builddir -Dssl=openssl "-Dextra_include_dirs=%hMailServerLibs%\openssl-3.5.7\out64\include" "-Dextra_lib_dirs=%hMailServerLibs%\openssl-3.5.7\out64\lib"
-   meson compile -C builddir src/interfaces/libpq/libpq:shared_library
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-pgsql.ps1 -Version 15.19
    </pre>
 
-**NOTE:** The `-Dextra_include_dirs` and `-Dextra_lib_dirs` flags ensure meson links against the specific OpenSSL version built above. Verify that no other OpenSSL installation appears earlier in `%PATH%` (e.g. from Git for Windows or other tools), as meson may pick up the wrong version.
-
-**TIP:** You can use [Dependencies](https://github.com/lucasg/Dependencies/releases) to verify that the built `libpq.dll` links against the correct OpenSSL DLLs (`libcrypto-3-x64.dll` / `libssl-3-x64.dll`) and not some other version found elsewhere on the system.
-
+The script auto-detects the OpenSSL version to link against from the hMailServer project; pass
+`-OpenSSLVersion 3.5.8` to override it. Only PostgreSQL 15.x and 16.x are supported (17 removed
+the `src\tools\msvc\build.pl` build system this relies on).
 
 Building Boost
 --------------
-1. Download Boost 1.91.0 from http://www.boost.org/ and put it into %hMailServerLibs%\<Boost-Version>.
-   You should now have a folder named %hMailServerLibs%\<Boost-Version>, for example C:\Dev\hMailLibs\boost_1_91_0
-2. Start a x64 Native Tools Command Prompt for VS2019.
-3. Change dir to %hMailServerLibs%\<Boost-Version>.
-4. Run the following commands:
+hMailServer currently uses Boost 1.92.0. The helper script downloads a clean source tree and builds the static, multithreaded x64 libraries used by hMailServer.
 
-   NOTE: Change the -j parameter from 4 to the number of cores on your computer. The parameter specifies the number of parallel compilations will be done.
+Prerequisites:
+- The environment variable `hMailServerLibs`.
+- Visual Studio 2019 with the x64 C++ build tools.
+
+Run from the repository root:
 
    <pre>
-   bootstrap
-   b2 debug release threading=multi link=static --with-thread --with-filesystem --with-regex --with-chrono --with-system --with-atomic --toolset=msvc-14.2 address-model=64 stage --build-dir=out64 -j 4
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-boost.ps1 -Version 1.92.0
    </pre>
+
+Pass `-Toolset <name>` to override `msvc-14.2`, or `-Jobs <n>` to change the number of parallel compilations.
 
 Building hMailServer
 --------------------

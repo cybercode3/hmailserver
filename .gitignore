@@ -44,3 +44,4 @@ hmailserver/source/Server/hMailServer.Minidump/x64/*
 .vs
 /hmailserver/test/packages/*
 /hmailserver/test/RegressionTests/packages/*
+/**/TestResult.xml

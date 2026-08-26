@@ -77,6 +77,7 @@ namespace HM
       rejected_by_delayed_grey_listing_(false),
       current_state_(INITIAL),
       trace_headers_written_(true),
+      message_submission_(false),
       requestedAuthenticationType_(AUTH_NONE),
       max_message_size_kb_(0),
       cur_no_of_rcptto_(0),
@@ -744,6 +745,9 @@ namespace HM
          return;
       }
 
+      if (isAuthenticated_ || (localSender && !authenticationRequired))
+         message_submission_ = true;
+
       // Pre-transmission spam protection.
       if (type_ == SPPreTransmission)
       {
@@ -894,7 +898,7 @@ namespace HM
       {
          std::shared_ptr<MimeHeader> original_headers = Utilities::GetMimeHeader(transmission_buffer_->GetBuffer()->GetBuffer(), transmission_buffer_->GetBuffer()->GetSize());
 
-         SMTPMessageHeaderCreator header_creator(username_, GetIPAddressString(), isAuthenticated_, helo_host_, original_headers);
+         SMTPMessageHeaderCreator header_creator(username_, GetIPAddressString(), isAuthenticated_, message_submission_, helo_host_, original_headers);
          
          if (IsSSLConnection())
             header_creator.SetCipherInfo(GetCipherInfo());
@@ -983,6 +987,8 @@ namespace HM
    void
    SMTPConnection::HandleSMTPFinalizationTaskCompleted_()
    {
+      if (transmission_buffer_)
+         transmission_buffer_->Close();
       if (!DoPreAcceptSpamProtection_())
       {
          // This message was stopped by spam protection. The user either needs
@@ -1472,6 +1478,8 @@ namespace HM
       }
 
       rejected_by_delayed_grey_listing_ = false;
+
+      message_submission_ = false;
 
       sender_domain_.reset();
       sender_account_.reset();

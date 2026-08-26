@@ -36,64 +36,66 @@ namespace HM
    bool
    PersistentIMAPFolder::DeleteByAccount(__int64 iAccountID)
    {
+      return DeleteByAccount(iAccountID, false);
+   }
+
+   bool
+   PersistentIMAPFolder::DeleteByAccount(__int64 iAccountID, bool forceDelete)
+   {
       if (iAccountID <= 0)
          return false;
 
       IMAPFolders accountFolders (iAccountID, -1);
       accountFolders.Refresh();
-      return accountFolders.DeleteAll();
+
+      for (int i = 0; i < accountFolders.GetCount(); i++)
+      {
+         if (!DeleteObject(accountFolders.GetItem(i), forceDelete))
+            return false;
+      }
+
+      return true;
    }
 
    bool
    PersistentIMAPFolder::DeleteObject(std::shared_ptr<IMAPFolder> pFolder)
    {
-      return DeleteObject  (pFolder, false);
+      return DeleteObject(pFolder, true);
    }
 
-   /*
-      Deletes a specific IMAP folder.
-
-      If forceDelete is false, the user Inbox won't be deleted.
-
-   */
    bool
    PersistentIMAPFolder::DeleteObject(std::shared_ptr<IMAPFolder> pFolder, bool forceDelete)
    {
       if (pFolder->GetID() <= 0)
          return false;
-      
-      // Delete sub folders first...
-      if (!pFolder->GetSubFolders()->DeleteAll())
-         return false;
 
-      // We must delete all email in this folder.
+      std::shared_ptr<IMAPFolders> pSubFolders = pFolder->GetSubFolders();
+      for (int i = 0; i < pSubFolders->GetCount(); i++)
+      {
+         if (!DeleteObject(pSubFolders->GetItem(i), forceDelete))
+            return false;
+      }
+
       pFolder->GetMessages()->Refresh(false);
-
-      std::function<bool(int, std::shared_ptr<Message>)> filter = [](int index, std::shared_ptr<Message> message)
-         {
-            return true;
-         };
-
+      std::function<bool(int, std::shared_ptr<Message>)> filter = [](int index, std::shared_ptr<Message> message) { return true; };
       auto messages = MessagesContainer::Instance()->GetMessages(pFolder->GetAccountID(), pFolder->GetID());
       messages->DeleteMessages(filter);
-            
+
       if (!pFolder->GetPermissions()->DeleteAll())
          return false;
 
       bool isInbox = pFolder->GetParentFolderID() == -1 && pFolder->GetFolderName().CompareNoCase(_T("Inbox")) == 0;
-      bool deleteActualFolder = forceDelete || !isInbox;
+      bool isSpecialUseFolder = pFolder->GetSpecialUseFlags() != IMAPFolder::SpecialUseNone;
+      bool deleteActualFolder = forceDelete || !(isInbox || isSpecialUseFolder);
 
       if (deleteActualFolder)
       {
          SQLCommand command("delete from hm_imapfolders where folderid = @FOLDERID");
          command.AddParameter("@FOLDERID", pFolder->GetID());
-
-         bool result = Application::Instance()->GetDBManager()->Execute(command);
-
-         return result;
+         return Application::Instance()->GetDBManager()->Execute(command);
       }
-      else
-         return true;
+
+      return true;
    }
 
    bool
@@ -142,6 +144,7 @@ namespace HM
       oStatement.AddColumnInt64("folderparentid", pFolder->GetParentFolderID());
       oStatement.AddColumn("foldername", pFolder->GetFolderName());
       oStatement.AddColumn("folderissubscribed", pFolder->GetIsSubscribed() ? 1 : 0);
+      oStatement.AddColumn("folderspecialuse", (long) pFolder->GetSpecialUseFlags());
 
       
       __int64 iDBID = 0;

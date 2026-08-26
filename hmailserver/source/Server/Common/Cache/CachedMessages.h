@@ -40,11 +40,11 @@ namespace HM
 
       std::shared_ptr<Messages> GetMessages(bool update_recent_flags) 
       { 
+         boost::lock_guard<boost::recursive_mutex> guard(refresh_mutex_);
          if (refresh_needed_)
          {
-            refresh_needed_ = false;
-
-            messages_->Refresh(update_recent_flags);
+            if (messages_->Refresh(update_recent_flags))
+               refresh_needed_ = false;
          }
 
          return messages_; 
@@ -52,6 +52,7 @@ namespace HM
 
       void SetRefreshNeeded()
       {
+         boost::lock_guard<boost::recursive_mutex> guard(refresh_mutex_);
          refresh_needed_ = true;
       }
 
@@ -59,5 +60,6 @@ namespace HM
 
       std::shared_ptr<Messages> messages_;
       bool refresh_needed_;
+      boost::recursive_mutex refresh_mutex_;
    };
 }

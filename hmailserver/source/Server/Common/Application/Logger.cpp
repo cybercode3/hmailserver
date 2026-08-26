@@ -326,7 +326,7 @@ namespace HM
 
       try
       {
-         bool fileExists = FileUtilities::Exists(fileName);
+         fileExists = FileUtilities::Exists(fileName);
       }
       catch (boost::system::system_error&)
       {
@@ -409,7 +409,11 @@ namespace HM
          file->Write(sAnsiString);
       }
 
-      if (!keepFileOpen)
+      if (keepFileOpen)
+      {
+         file->Flush();
+      }
+      else
          file->Close();
    }
 

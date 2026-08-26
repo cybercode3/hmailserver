@@ -38,6 +38,7 @@ namespace HM
    private:
 
       static bool ReadObject(std::shared_ptr<Account> pAccount,const SQLCommand &command);
+      static void CreateDefaultSpecialUseFolders(const Account &account);
       
    };
 

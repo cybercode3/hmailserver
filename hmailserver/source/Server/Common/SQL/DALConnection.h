@@ -3,11 +3,17 @@
 
 #pragma once
 
+#include <memory>
+
+#include "../Util/StdString.h"
+
 namespace HM
 {
    class DatabaseSettings;
    class MacroExpander;
    class IMacroExpander;
+   class DALRecordset;
+   class SQLCommand;
 
    class DALConnection  
    {

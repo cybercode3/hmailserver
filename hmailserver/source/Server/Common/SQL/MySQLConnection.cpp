@@ -69,6 +69,15 @@ namespace HM
 
          dbconn_ = MySQLInterface::Instance()->p_mysql_init(NULL);
 
+         if (MySQLInterface::Instance()->IsMariaDB() && MySQLInterface::Instance()->p_mysql_options != 0)
+         {
+            const int HM_MYSQL_OPT_SSL_VERIFY_SERVER_CERT = 21;
+            const int HM_MYSQL_OPT_SSL_ENFORCE = 38;
+            char disabled = 0;
+            MySQLInterface::Instance()->p_mysql_options(dbconn_, HM_MYSQL_OPT_SSL_ENFORCE, &disabled);
+            MySQLInterface::Instance()->p_mysql_options(dbconn_, HM_MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &disabled);
+         }
+
          //MYSQL *pResult = mysql_real_connect(
          hm_MYSQL *pResult = MySQLInterface::Instance()->p_mysql_real_connect(
                      dbconn_, 

@@ -3,6 +3,12 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
+#include "../Util/StdString.h"
+#include "DALConnection.h"
+
 namespace HM
 {
    class SQLCommand;

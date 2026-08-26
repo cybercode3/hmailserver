@@ -34,8 +34,6 @@ namespace HM
    void 
    DKIM::Initialize()
    {
-      ERR_load_EVP_strings();
-
       recommendedHeaderFields_.push_back("From");
       recommendedHeaderFields_.push_back("Sender");
       recommendedHeaderFields_.push_back("Reply-To");

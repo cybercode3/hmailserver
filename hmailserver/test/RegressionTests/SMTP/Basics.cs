@@ -265,6 +265,40 @@ namespace RegressionTests.SMTP
       }
 
       [Test]
+      [Category("SMTP")]
+      public void TestMessageIDAddedForAuthenticatedSender()
+      {
+         SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "test@example.test", "test");
+         string errorMessage;
+         var simulator = new SmtpClientSimulator();
+         simulator.Send(false, "test@example.test", "test", "test@example.test", "test@example.test", "Test subject", "Test body", out errorMessage);
+         var text = Pop3ClientSimulator.AssertGetFirstMessageText("test@example.test", "test");
+         Assert.IsTrue(text.Contains("Message-ID: <"));
+      }
+
+      [Test]
+      [Category("SMTP")]
+      public void TestMessageIDAddedForLocalSenderNotRequiredToAuthenticate()
+      {
+         var range = SingletonProvider<TestSetup>.Instance.GetApp().Settings.SecurityRanges.get_ItemByName("My computer");
+         Assert.IsFalse(range.RequireSMTPAuthLocalToLocal);
+         SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "test@example.test", "test");
+         SmtpClientSimulator.StaticSend("test@example.test", "test@example.test", "Test subject", "Test body");
+         var text = Pop3ClientSimulator.AssertGetFirstMessageText("test@example.test", "test");
+         Assert.IsTrue(text.Contains("Message-ID: <"));
+      }
+
+      [Test]
+      [Category("SMTP")]
+      public void TestMessageIDNotAddedForRelayedMessage()
+      {
+         SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "test@example.test", "test");
+         SmtpClientSimulator.StaticSend("someone@example.com", "test@example.test", "Test subject", "Test body");
+         var text = Pop3ClientSimulator.AssertGetFirstMessageText("test@example.test", "test");
+         Assert.IsFalse(text.Contains("Message-ID"));
+      }
+
+      [Test]
       public void TestEHLOKeywords()
       {
          Application application = SingletonProvider<TestSetup>.Instance.GetApp();

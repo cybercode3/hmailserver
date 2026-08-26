@@ -6,9 +6,7 @@
 #include "../PasswordGenerator.h"
 #include "../../Mime/MimeCode.h"
 
-#include <openssl/sha.h>
 #include <openssl/evp.h>
-#include <openssl/md5.h>
 
 #include "HashCreator.h"
 
@@ -92,52 +90,29 @@ namespace HM
 
    AnsiString HashCreator::GetHash_Raw(const unsigned char *input, int inputLength, HashCreator::RequestedEncoding encoding)
    {
-      int digestLength = 0;
+      const EVP_MD *message_digest = nullptr;
 
       switch (hash_type_)
       {
       case SHA1:
-         digestLength = SHA_DIGEST_LENGTH;
+         message_digest = EVP_sha1();
          break;
       case SHA256:
-         digestLength = SHA256_DIGEST_LENGTH;
+         message_digest = EVP_sha256();
          break;
       case MD5:
-         digestLength = MD5_DIGEST_LENGTH;
+         message_digest = EVP_md5();
          break;
       }
 
-      unsigned char *results = new unsigned char[digestLength];
+      if (!message_digest)
+         return AnsiString();
 
-      switch (hash_type_)
-      {
-      case SHA1:
-         {
-            SHA_CTX context;
-            SHA1_Init(&context);
-            SHA1_Update(&context, input, inputLength);
-            SHA1_Final(results, &context);
-            break;
-         }
-      case MD5:
-         {
-            MD5_CTX context;
-            MD5_Init(&context);
-            MD5_Update(&context, input, inputLength);
-            MD5_Final(results, &context);
-            break;
-         }
-      case SHA256:
-         {
-            SHA256_CTX context;
-            SHA256_Init(&context);
-            SHA256_Update(&context, input, inputLength);
-            SHA256_Final(results, &context);
-            break;
-         }
+      unsigned char results[EVP_MAX_MD_SIZE];
+      unsigned int digest_length = 0;
 
-      }
-
+      if (EVP_Digest(input, static_cast<size_t>(inputLength), results, &digest_length, message_digest, nullptr) != 1)
+         return AnsiString();
 
       HM::AnsiString retVal;
       if (encoding == hex)
@@ -145,7 +120,7 @@ namespace HM
          char buffer[3];
          buffer[2] = '\0';
 
-         for (int i = 0; i < digestLength; i++)
+         for (unsigned int i = 0; i < digest_length; i++)
          {
             sprintf_s(buffer, 3, "%02x", results[i]);
 
@@ -156,7 +131,7 @@ namespace HM
       else if (encoding == base64)
       {
          MimeCodeBase64 encoder;
-         encoder.SetInput((const char*) results, digestLength, true);
+         encoder.SetInput((const char*) results, static_cast<int>(digest_length), true);
 
          AnsiString sEncodedValue;
          encoder.GetOutput(sEncodedValue);
@@ -164,8 +139,6 @@ namespace HM
          retVal = sEncodedValue;
          retVal = retVal.Mid(0, retVal.GetLength()-2);
       }
-
-      delete [] results;
 
       return retVal;
    }

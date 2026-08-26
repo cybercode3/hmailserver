@@ -306,15 +306,14 @@ namespace HM
       int endPos = sReceivedHeader.Find(_T(" "), startPos );
       if (endPos == -1)
       {
-         assert(0);
-         return "";
+         // The header ends directly after the host name.
+         endPos = sReceivedHeader.GetLength();
       }
 
       int length = endPos - startPos;
 
-      if (length == -1)
+      if (length <= 0)
       {
-         assert(0);
          return "";
       }
 
@@ -356,37 +355,47 @@ namespace HM
          return IPAddress();
       }
 
-      int iBracketPos = sReceivedHeader.Find(_T("["), iFromPos );
-      if (iBracketPos == -1)
+      // Only the part of the header describing the sending host is of interest.
+      // What follows "by" describes the receiving host, and may contain values
+      // which look like IP addresses, such as software version numbers.
+      int iEndPos = sReceivedHeader.Find(_T("by "), iFromPos);
+      if (iEndPos == -1)
+         iEndPos = sReceivedHeader.GetLength();
+
+      // The sending host may be described both by the host name it presented in
+      // HELO/EHLO, and by the address the receiving server saw it connect from.
+      // The client controls HELO/EHLO, so use the last observed address.
+      IPAddress result;
+
+      int iSearchPos = iFromPos;
+      int iBracketPos = sReceivedHeader.Find(_T("["), iSearchPos);
+
+      while (iBracketPos >= 0 && iBracketPos < iEndPos)
       {
-         // Could not locate IP address.
-         return IPAddress();
+         int iBracketEndPos = sReceivedHeader.Find(_T("]"), iBracketPos);
+         if (iBracketEndPos == -1 || iBracketEndPos > iEndPos)
+            break;
+
+         String sPreceding = sReceivedHeader.Mid(iSearchPos, iBracketPos - iSearchPos);
+         sPreceding.TrimRight();
+
+         bool givenInHelo = sPreceding.EndsWith(_T("helo=")) ||
+                            sPreceding.EndsWith(_T(" helo")) ||
+                            sPreceding.EndsWith(_T("(helo"));
+
+         if (!givenInHelo)
+         {
+            String sIPAddress = sReceivedHeader.Mid(iBracketPos + 1, iBracketEndPos - iBracketPos - 1);
+            IPAddress address;
+            if (address.TryParse(sIPAddress, false))
+               result = address;
+         }
+
+         iSearchPos = iBracketEndPos + 1;
+         iBracketPos = sReceivedHeader.Find(_T("["), iSearchPos);
       }
 
-      int iByPos = sReceivedHeader.Find(_T("by "));
-      if (iByPos >= 0 && iByPos < iBracketPos)
-      {
-         // Found from but no bracket.
-         return IPAddress();
-      }
-
-      int iBracketEndPos = sReceivedHeader.Find(_T("]"), iBracketPos);
-
-      int iIPLength = iBracketEndPos - iBracketPos - 1;
-
-      String sIPAddress = sReceivedHeader.Mid(iBracketPos + 1, iIPLength);
-
-      if (!StringParser::IsValidIPAddress(sIPAddress))
-      {
-         // Could not locate IP address
-         assert(0);
-         return IPAddress();
-      }
-
-      IPAddress address;
-      address.TryParse(sIPAddress);
-
-      return address;
+      return result;
 
    }
 

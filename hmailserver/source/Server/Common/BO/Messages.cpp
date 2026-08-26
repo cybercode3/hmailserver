@@ -45,6 +45,16 @@ namespace HM
 
    }
 
+   void
+   Messages::GetRecentMessages(std::set<__int64> &recent_messages) const
+   {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+      recent_messages.clear();
+      for (std::shared_ptr<Message> message : vecObjects)
+         if (message->GetFlagRecent())
+            recent_messages.insert(message->GetID());
+   }
+
    long
    Messages::GetNoOfSeen() const
    {
@@ -140,7 +150,7 @@ namespace HM
    }
 
 
-   void
+   bool
    Messages::Refresh(bool update_recent_flags)
    {
       boost::lock_guard<boost::recursive_mutex> guard(_mutex);
@@ -158,7 +168,7 @@ namespace HM
             to messages before they are inserted into the queue.
          */
          ErrorManager::Instance()->ReportError(ErrorManager::Medium, 5204, "Messages::Refresh", "Refresh not supported on the current collection.");
-         return;
+         return false;
 
       }
 
@@ -201,11 +211,12 @@ namespace HM
 
       std::shared_ptr<DALRecordset> pRS = Application::Instance()->GetDBManager()->OpenRecordset(command);
       if (!pRS)
-         return;
+         return false;
 
       AddToCollection(pRS);
 
      
+      return true;
    }
 
    void

@@ -122,12 +122,12 @@ namespace HM
    }
 
    bool
-   FileUtilities::Move(const String &sFrom, const String &sTo, bool overwrite)
+   FileUtilities::Move(const String &sFrom, const String &sTo)
    {
       const int iMaxNumberOfTries = 5;
 
-      if (overwrite)
-         DeleteFile(sTo);
+      const int iBaseDelayMs = 150;
+      int iDelayMs = iBaseDelayMs;
 
       for (int i = 1; i <= iMaxNumberOfTries; i++)
       {
@@ -150,7 +150,8 @@ namespace HM
          }
 
          // Some other process must have locked the file.
-         Sleep(250);
+         Sleep(iDelayMs);
+         iDelayMs *= 2;
       }
 
       throw std::logic_error("Move file logic error.");

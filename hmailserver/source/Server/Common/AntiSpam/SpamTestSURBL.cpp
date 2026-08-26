@@ -30,7 +30,7 @@ namespace HM
    {
       std::shared_ptr<SURBLServers> pSURBLServers = Configuration::Instance()->GetAntiSpamConfiguration().GetSURBLServers();
 
-      std::vector<std::shared_ptr<SURBLServer> > vec = pSURBLServers->GetVector();
+      std::vector<std::shared_ptr<SURBLServer> > vec = pSURBLServers->GetSnapshot();
       auto iter = vec.begin();
       auto iterEnd = vec.end();
 
@@ -57,7 +57,7 @@ namespace HM
 
       SURBL surblTester;
 
-      for(std::shared_ptr<SURBLServer> pSURBLServer : pSURBLServers->GetVector())
+      for(std::shared_ptr<SURBLServer> pSURBLServer : pSURBLServers->GetSnapshot())
       {
          if (pSURBLServer->GetIsActive()) 
          {

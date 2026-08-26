@@ -61,6 +61,12 @@ namespace HM
       return true;
    }
 
+   void
+   TransparentTransmissionBuffer::Close()
+   {
+      file_.Close();
+   }
+
    void 
    TransparentTransmissionBuffer::SetMaxSizeKB(size_t maxSize)
    {
@@ -173,7 +179,8 @@ namespace HM
       // Start in the end and move 'back' MAX_LINE_LENGTH characters.
       size_t searchEndPos = 0;
       
-      if (bufferSize == 0)
+      // An empty buffer still needs finalization below when forcing the transmission.
+      if (bufferSize == 0 && !bForce)
          return dataProcessed;
 
       if (bufferSize > maxLineLength)

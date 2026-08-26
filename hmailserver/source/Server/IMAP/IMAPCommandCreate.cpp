@@ -11,6 +11,7 @@
 #include "../Common/BO/IMAPFolders.h"
 #include "../Common/BO/IMAPFolder.h"
 #include "../Common/BO/ACLPermission.h"
+#include "../Common/Persistence/PersistentIMAPFolder.h"
 
 #ifdef _DEBUG
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -30,14 +31,37 @@ namespace HM
 
       pParser->Parse(pArgument);
 
-      if (pParser->ParamCount() != 1)
-         return IMAPResult(IMAPResult::ResultBad, "CREATE Command requires 1 parameter.");
+      if (pParser->ParamCount() != 1 && pParser->ParamCount() != 2)
+         return IMAPResult(IMAPResult::ResultBad, "CREATE Command requires 1 or 2 parameters.");
 
       // Fetch the name of the mailbox to create.
       String sFolderName = pParser->GetParamValue(pArgument, 0);
 
       if (sFolderName.IsEmpty())
          return IMAPResult(IMAPResult::ResultNo, "Folder name not specified.");
+
+      String sSpecialUse;
+      if (pParser->ParamCount() == 2)
+      {
+         String sUseParam = pParser->GetParamValue(pArgument, 1);
+         if (sUseParam.Left(3).CompareNoCase(_T("USE")) != 0)
+            return IMAPResult(IMAPResult::ResultBad, "CREATE Invalid create-param. Only USE is supported.");
+         int iOpenParen = sUseParam.Find(_T("("));
+         int iCloseParen = sUseParam.ReverseFind(_T(")"));
+         if (iOpenParen < 0 || iCloseParen < 0 || iCloseParen < iOpenParen)
+            return IMAPResult(IMAPResult::ResultBad, "CREATE Invalid USE create-param.");
+         String sAttributes = sUseParam.Mid(iOpenParen + 1, iCloseParen - iOpenParen - 1);
+         std::vector<String> vecAttributes = StringParser::SplitString(sAttributes, _T(" "));
+         if (vecAttributes.empty())
+            return IMAPResult(IMAPResult::ResultBad, "CREATE Invalid USE create-param.");
+         for (const String &sAttribute : vecAttributes)
+            if (!IMAPFolder::IsValidSpecialUseAttribute(sAttribute))
+               return IMAPResult(IMAPResult::ResultNo, "[USEATTR] CREATE Unsupported special-use attribute.");
+         sSpecialUse = StringParser::JoinVector(vecAttributes, _T(" "));
+         unsigned int newSpecialUseFlags = IMAPFolder::SpecialUseStringToFlags(sSpecialUse);
+         if (pConnection->GetAccountFolders()->GetFolderWithSpecialUse(newSpecialUseFlags))
+            return IMAPResult(IMAPResult::ResultNo, "[USEATTR] CREATE A mailbox with this special-use attribute already exists.");
+      }
          
       // Check so that it does not already exist.
       std::shared_ptr<IMAPFolder> pExistsCheck = pConnection->GetFolderByFullPath(sFolderName);
@@ -51,6 +75,9 @@ namespace HM
       bool bIsPublicFolder = IMAPFolderUtilities::IsPublicFolder(vecFolderPath);
       if (bIsPublicFolder)
          vecFolderPath.erase(vecFolderPath.begin());
+
+      if (bIsPublicFolder && !sSpecialUse.IsEmpty())
+         return IMAPResult(IMAPResult::ResultNo, "CREATE USE is not supported for public folders.");
 
       if (!IMAPFolder::IsValidFolderName(vecFolderPath, bIsPublicFolder))
          return IMAPResult(IMAPResult::ResultNo, "CREATE The folder name is invalid.");
@@ -68,6 +95,16 @@ namespace HM
       bool bSubscribeToFolder = bIsPublicFolder;
 
       pParentFolderContainer->CreatePath(pParentFolderContainer, vecFolderPath, bSubscribeToFolder);
+
+      if (!sSpecialUse.IsEmpty())
+      {
+         std::shared_ptr<IMAPFolder> pCreatedFolder = pParentFolderContainer->GetFolderByFullPath(vecFolderPath);
+         if (pCreatedFolder)
+         {
+            pCreatedFolder->SetSpecialUse(sSpecialUse);
+            PersistentIMAPFolder::SaveObject(pCreatedFolder);
+         }
+      }
 
       String sResponse = pArgument->Tag() + " OK CREATE Completed\r\n";
 

@@ -50,6 +50,7 @@ namespace HM
       size_t GetSize();
 
       void Add(std::shared_ptr<T> pObject);
+      std::shared_ptr<T> AddIfNotExists(std::shared_ptr<T> pObject);
 
    private:
 
@@ -311,6 +312,20 @@ namespace HM
       no_of_misses_++;
       current_estimated_size_ += object.GetEstimatedSize();
       items.insert(object);
+   }
+
+   template <class T>
+   std::shared_ptr<T>
+   Cache<T>::AddIfNotExists(std::shared_ptr<T> pObject)
+   {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+      if (!enabled_)
+         return pObject;
+      auto existing_object = GetItemBy_<id>(objects_, pObject->GetID());
+      if (existing_object != nullptr)
+         return existing_object;
+      Add(pObject);
+      return pObject;
    }
 
    template <class T> 

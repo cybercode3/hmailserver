@@ -1,4 +1,4 @@
-// Copyright (c) 2010 Martin Knafve / hMailServer.com.  
+// Copyright (c) 2010 Martin Knafve / hMailServer.com.
 // http://www.hmailserver.com
 
 #include "stdafx.h"
@@ -41,12 +41,47 @@ namespace HM
 
       pParser->Parse(pArgument);
 
-      if (pParser->ParamCount() != 2)
-         return IMAPResult(IMAPResult::ResultBad, "LIST Command requires 2 parameters.");
+      size_t iWordCount = pParser->WordCount();
+      size_t iWordIdx = 1;
+      bool bOnlySpecialUse = false;
 
-      // Read parameters
-      String sReferenceName = pParser->GetParamValue(pArgument, 0);
-      String sWildcards = pParser->GetParamValue(pArgument, 1);
+      if (iWordIdx < iWordCount && pParser->Word(iWordIdx)->Paranthezied())
+      {
+         std::vector<String> vecSelectionOptions = StringParser::SplitString(pParser->Word(iWordIdx)->Value(), _T(" "));
+         for (const String &sOption : vecSelectionOptions)
+         {
+            if (sOption.CompareNoCase(_T("SPECIAL-USE")) == 0)
+               bOnlySpecialUse = true;
+            else
+               return IMAPResult(IMAPResult::ResultBad, "LIST Unsupported selection option.");
+         }
+         iWordIdx++;
+      }
+
+      if (iWordIdx + 2 > iWordCount)
+         return IMAPResult(IMAPResult::ResultBad, "LIST Command requires a reference name and a mailbox name.");
+
+      String sReferenceName = pParser->Word(iWordIdx)->Value();
+      iWordIdx++;
+      String sWildcards = pParser->Word(iWordIdx)->Value();
+      iWordIdx++;
+
+      if (iWordIdx < iWordCount)
+      {
+         if (pParser->Word(iWordIdx)->Value().CompareNoCase(_T("RETURN")) != 0)
+            return IMAPResult(IMAPResult::ResultBad, "LIST Invalid list-extended syntax.");
+         iWordIdx++;
+         if (iWordIdx >= iWordCount || !pParser->Word(iWordIdx)->Paranthezied())
+            return IMAPResult(IMAPResult::ResultBad, "LIST Invalid RETURN option list.");
+         std::vector<String> vecReturnOptions = StringParser::SplitString(pParser->Word(iWordIdx)->Value(), _T(" "));
+         for (const String &sOption : vecReturnOptions)
+            if (sOption.CompareNoCase(_T("SPECIAL-USE")) != 0)
+               return IMAPResult(IMAPResult::ResultBad, "LIST Unsupported RETURN option.");
+         iWordIdx++;
+      }
+
+      if (iWordIdx != iWordCount)
+         return IMAPResult(IMAPResult::ResultBad, "LIST Invalid list-extended syntax.");
 
       String hierarchyDelimiter = Configuration::Instance()->GetIMAPConfiguration()->GetHierarchyDelimiter();
 
@@ -60,10 +95,10 @@ namespace HM
       if (!pFolders || !pPublicFolders)
          return IMAPResult(IMAPResult::ResultNo, "LIST failed - No folders.");
 
-      String sPublicFolderName = Configuration::Instance()->GetIMAPConfiguration()->GetIMAPPublicFolderName(); 
+      String sPublicFolderName = Configuration::Instance()->GetIMAPConfiguration()->GetIMAPPublicFolderName();
 
-      String sResult =  FolderListCreator::GetIMAPFolderList(pConnection->GetAccount()->GetID(), pFolders, folderSpecifier, "") + 
-                        FolderListCreator::GetIMAPFolderList(pConnection->GetAccount()->GetID(), pPublicFolders, folderSpecifier, sPublicFolderName);
+      String sResult =  FolderListCreator::GetIMAPFolderList(pConnection->GetAccount()->GetID(), pFolders, folderSpecifier, "", bOnlySpecialUse) +
+                        FolderListCreator::GetIMAPFolderList(pConnection->GetAccount()->GetID(), pPublicFolders, folderSpecifier, sPublicFolderName, bOnlySpecialUse);
 
       if (sResult.IsEmpty() && sWildcards.IsEmpty())
       {
@@ -72,7 +107,7 @@ namespace HM
       }
 
       sResult += sTag + " OK LIST completed\r\n";
-      pConnection->SendAsciiData(sResult);   
+      pConnection->SendAsciiData(sResult);
 
       return IMAPResult();
    }

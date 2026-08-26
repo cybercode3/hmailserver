@@ -31,6 +31,7 @@ typedef hm_MYSQL_ROW STDCALL hm_mysql_fetch_row(hm_MYSQL_RES *result);
 typedef unsigned int STDCALL hm_mysql_num_fields(hm_MYSQL_RES *res);
 typedef hm_st_mysql_field *STDCALL hm_mysql_fetch_field_direct(hm_MYSQL_RES *res, unsigned int fieldnr);
 typedef unsigned long STDCALL hm_mysql_get_server_version(hm_MYSQL *mysql);
+typedef int STDCALL hm_mysql_options(hm_MYSQL *mysql, int option, const void *arg);
 
 namespace HM
 {
@@ -42,6 +43,7 @@ namespace HM
 
       bool Load(String &sErrorMessage);
       bool IsLoaded();
+      bool IsMariaDB() const { return is_mariadb_; }
    
       hm_mysql_real_connect *p_mysql_real_connect;
       hm_mysql_close *p_mysql_close;
@@ -57,10 +59,13 @@ namespace HM
       hm_mysql_num_fields *p_mysql_num_fields;
       hm_mysql_fetch_field_direct *p_mysql_fetch_field_direct;
       hm_mysql_get_server_version *p_mysql_get_server_version;
+      hm_mysql_options *p_mysql_options;
    private:
 
-      String GetLibraryFileName_();
+      String GetLibraryFileName_(bool &isMariaDB);
+      String GetLibraryDirectory_();
 
       HINSTANCE library_instance_;
+      bool is_mariadb_;
    };
 }

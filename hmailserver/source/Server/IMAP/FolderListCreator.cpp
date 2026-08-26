@@ -30,12 +30,12 @@ namespace HM
    }
 
    String 
-   FolderListCreator::GetIMAPFolderList(__int64 iAccountID, std::shared_ptr<IMAPFolders> pStartFolders, const String &sWildcard, const String &sPrefix) 
+   FolderListCreator::GetIMAPFolderList(__int64 iAccountID, std::shared_ptr<IMAPFolders> pStartFolders, const String &sWildcard, const String &sPrefix, bool bOnlySpecialUse)
    {
       std::vector<String> vecCurrentFolder;
       std::vector<String> vecMatchingFolders;
 
-      CreateIMAPFolderList_(iAccountID, pStartFolders, sWildcard, false, sPrefix, vecCurrentFolder, vecMatchingFolders);
+      CreateIMAPFolderList_(iAccountID, pStartFolders, sWildcard, false, sPrefix, vecCurrentFolder, vecMatchingFolders, bOnlySpecialUse);
 
       String sRet = StringParser::JoinVector(vecMatchingFolders, "\r\n");
 
@@ -51,7 +51,7 @@ namespace HM
       std::vector<String> vecCurrentFolder;
       std::vector<String> vecMatchingFolders;
 
-      CreateIMAPFolderList_(iAccountID, pStartFolders, sWildcard, true, sPrefix, vecCurrentFolder, vecMatchingFolders);
+      CreateIMAPFolderList_(iAccountID, pStartFolders, sWildcard, true, sPrefix, vecCurrentFolder, vecMatchingFolders, false);
 
       String sRet = StringParser::JoinVector(vecMatchingFolders, "\r\n");
 
@@ -62,7 +62,7 @@ namespace HM
    }
 
    void
-   FolderListCreator::CreateIMAPFolderList_(__int64 iAccountID, std::shared_ptr<IMAPFolders> pStartFolders, const String &sWildcard, bool bOnlySubscribed, const String &sPrefix, std::vector<String> &vecCurrentFolder, std::vector<String> &vecMatchingFolders) 
+   FolderListCreator::CreateIMAPFolderList_(__int64 iAccountID, std::shared_ptr<IMAPFolders> pStartFolders, const String &sWildcard, bool bOnlySubscribed, const String &sPrefix, std::vector<String> &vecCurrentFolder, std::vector<String> &vecMatchingFolders, bool bOnlySpecialUse)
    {
       if (vecCurrentFolder.size() > IMAPFolder::MaxFolderDepth)    
          return;
@@ -72,7 +72,7 @@ namespace HM
       bool publicFolderAccessible = false;
 
 	  ACLManager aclManager;
-      for(std::shared_ptr<IMAPFolder> currentFolder : pStartFolders->GetVector())
+      for(std::shared_ptr<IMAPFolder> currentFolder : pStartFolders->GetSnapshot())
       {
          // Check if the user has access to this folder. Otherwise just skip it.
          std::shared_ptr<ACLPermission> pPermission = aclManager.GetPermissionForFolder(iAccountID, currentFolder);
@@ -97,14 +97,14 @@ namespace HM
          // Do we match?
          if (FolderWildcardMatch_(sFullPath, sWildcard, hierarchyDelimiter))
          {
-            String sFolderLine = CreateFolderLine_(currentFolder, bOnlySubscribed, hasSubFolders, sFullPath, sWildcard, true, hierarchyDelimiter );
+            String sFolderLine = CreateFolderLine_(currentFolder, bOnlySubscribed, hasSubFolders, sFullPath, sWildcard, true, hierarchyDelimiter, bOnlySpecialUse);
 
             if (!sFolderLine.IsEmpty())
                vecMatchingFolders.push_back(sFolderLine);
          }
 
          if (hasSubFolders)
-            CreateIMAPFolderList_(iAccountID, subFolders, sWildcard, bOnlySubscribed, sPrefix, vecCurrentFolder, vecMatchingFolders);
+            CreateIMAPFolderList_(iAccountID, subFolders, sWildcard, bOnlySubscribed, sPrefix, vecCurrentFolder, vecMatchingFolders, bOnlySpecialUse);
 
          vecCurrentFolder.erase(vecCurrentFolder.end() - 1);
       }
@@ -118,7 +118,7 @@ namespace HM
          if (FolderWildcardMatch_(publicFolderName, sWildcard, hierarchyDelimiter))
          {
             std::shared_ptr<IMAPFolder> pFolderDummy;
-            String sFolderLine = CreateFolderLine_(pFolderDummy, bOnlySubscribed, true, publicFolderName, sWildcard, false, hierarchyDelimiter);
+            String sFolderLine = CreateFolderLine_(pFolderDummy, bOnlySubscribed, true, publicFolderName, sWildcard, false, hierarchyDelimiter, bOnlySpecialUse);
 
             if (!sFolderLine.IsEmpty())
                vecMatchingFolders.push_back(sFolderLine);
@@ -129,12 +129,21 @@ namespace HM
    }
 
    String 
-   FolderListCreator::CreateFolderLine_(std::shared_ptr<IMAPFolder> currentFolder, bool bOnlySubscribed, bool hasSubFolders, String &sFullPath, const String &sWildcard, bool isSelectable, String hierarchyDelimiter)
+   FolderListCreator::CreateFolderLine_(std::shared_ptr<IMAPFolder> currentFolder, bool bOnlySubscribed, bool hasSubFolders, String &sFullPath, const String &sWildcard, bool isSelectable, String hierarchyDelimiter, bool bOnlySpecialUse)
    {
+      if (bOnlySpecialUse && (!currentFolder || currentFolder->GetSpecialUse().IsEmpty()))
+         return "";
+
       String nameAttributes = hasSubFolders ? "\\HasChildren" : "\\HasNoChildren";
 
       if (!isSelectable)
          nameAttributes += " \\Noselect";
+      else if (currentFolder)
+      {
+         String specialUse = currentFolder->GetSpecialUse();
+         if (!specialUse.IsEmpty())
+            nameAttributes += " " + specialUse;
+      }
 
       // Workaround for Outlook "feature".
       AdjustCaseToClientCase_(sFullPath, sWildcard, hierarchyDelimiter);
