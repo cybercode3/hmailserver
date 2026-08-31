@@ -29,7 +29,11 @@ namespace HM
       bool BackupDomains_(XNode *pNode);
       bool BackupDataDirectory_(const String &sDataBackupDir);
 
-      void RestoreDataDirectory_(std::shared_ptr<Backup> pBackup, XNode *pBackupNode);
+      bool PrepareRestoreDataDirectory_(std::shared_ptr<Backup> pBackup, XNode *pBackupNode, String &sPreparedDataDirectory, String &sErrorMessage);
+      bool BeginRestoreDataDirectoryCommit_(String &sRollbackDataDirectory, String &sErrorMessage);
+      bool CommitRestoreDataDirectory_(const String &sPreparedDataDirectory, const String &sRollbackDataDirectory, String &sErrorMessage);
+      void AbortRestoreDataDirectoryCommit_(const String &sPreparedDataDirectory, const String &sRollbackDataDirectory);
+      void FinalizeRestoreDataDirectoryCommit_(const String &sRollbackDataDirectory);
       
       int backup_mode_;
       

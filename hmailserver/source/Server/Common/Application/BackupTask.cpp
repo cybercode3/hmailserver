@@ -26,6 +26,22 @@ namespace HM
    void
    BackupTask::DoWork()
    {
+      std::shared_ptr<BackupManager> backupManager = Application::Instance()->GetBackupManager();
+
+      class BackupCompletionGuard
+      {
+      public:
+         explicit BackupCompletionGuard(std::shared_ptr<BackupManager> manager) : manager_(manager) {}
+         ~BackupCompletionGuard()
+         {
+            if (manager_)
+               manager_->OnThreadStopped();
+         }
+
+      private:
+         std::shared_ptr<BackupManager> manager_;
+      } completionGuard(backupManager);
+
       BackupExecuter oBE;
       if (do_backup_)
       {
@@ -35,8 +51,6 @@ namespace HM
       {
          oBE.StartRestore(backup_);
       }
-
-      Application::Instance()->GetBackupManager()->OnThreadStopped();
    }
 
 

@@ -42,21 +42,31 @@ namespace HM
 
       // Start the backup thread, if we aren't
       // already running a backup or restore.
-      if (is_running_)
+      bool alreadyRunning = false;
+      {
+         boost::lock_guard<boost::recursive_mutex> guard(mutex_);
+         if (is_running_)
+            alreadyRunning = true;
+         else
+            is_running_ = true;
+      }
+
+      if (alreadyRunning)
       {
          LOG_DEBUG("BackupManager::~StartBackup() - E1");
          OnBackupFailed("Backup or restore operation is already started");
          return false;
       }
 
-      is_running_ = true;
-
       std::shared_ptr<BackupTask> pBackupTask = std::shared_ptr<BackupTask>(new BackupTask(true));
 
       std::shared_ptr<WorkQueue> pWorkQueue = Application::Instance()->GetMaintenanceWorkQueue();
       if (!pWorkQueue)
       {
-         is_running_ = false;
+         {
+            boost::lock_guard<boost::recursive_mutex> guard(mutex_);
+            is_running_ = false;
+         }
 
          LOG_DEBUG("BackupManager::~StartBackup() - E2");
          OnBackupFailed("Backup operation failed because random work queue did not exist.");
@@ -79,14 +89,21 @@ namespace HM
 
       // Start the backup thread, if we aren't
       // already running a backup or restore.
-      if (is_running_)
+      bool alreadyRunning = false;
+      {
+         boost::lock_guard<boost::recursive_mutex> guard(mutex_);
+         if (is_running_)
+            alreadyRunning = true;
+         else
+            is_running_ = true;
+      }
+
+      if (alreadyRunning)
       {
          OnBackupFailed("Backup or restore operation is already started");
          LOG_DEBUG("BackupManager::~StartRestore() - E1");
          return false;
       }
-
-      is_running_ = true;
 
       std::shared_ptr<BackupTask> pBackupTask = std::shared_ptr<BackupTask>(new BackupTask(false));
       pBackupTask->SetBackupToRestore(pBackup);
@@ -138,6 +155,7 @@ namespace HM
    void 
    BackupManager::OnThreadStopped()
    {
+      boost::lock_guard<boost::recursive_mutex> guard(mutex_);
       is_running_ = false;
    }
 
