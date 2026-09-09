@@ -388,7 +388,7 @@ namespace RegressionTests.Security
 
       [Test]
       [Description(
-         "Test option TreatRecipientAsLocalDomain. Attempt to send message from external account to route configured as exernal. Should fail."
+         "Test option TreatRecipientAsLocalDomain. Attempt to send message from external account to route configured as external. Should fail."
          )]
       public void TreatRecipientAsExternalDomain()
       {
@@ -406,7 +406,7 @@ namespace RegressionTests.Security
 
       [Test]
       [Description(
-         "Test option TreatRecipientAsLocalDomain. Attempt to send message from external account to route configured as exernal. Should succeed, since it's permitted by IP range."
+         "Test option TreatRecipientAsLocalDomain. Attempt to send message from external account to route configured as external. Should succeed, since it's permitted by IP range."
          )]
       public void TreatRecipientAsExternalDomainPermitted()
       {

@@ -6,6 +6,10 @@
 #include "IMAPConnection.h"
 
 #include "MessagesContainer.h"
+#include "IMAPFolderView.h"
+
+#include "../Common/BO/Messages.h"
+#include "../Common/BO/Message.h"
 
 #include "../Common/BO/IMAPFolder.h"
 
@@ -27,75 +31,62 @@ namespace HM
          return IMAPResult(IMAPResult::ResultNo, "Authenticate first");
 
       if (pConnection->GetCurrentFolderReadOnly())
-      {
          return IMAPResult(IMAPResult::ResultNo, "Expunge command on read-only folder.");
-      }
 
-      // Iterate through mail boxes and delete messages marked for deletion.
-      std::shared_ptr<IMAPFolder> pCurFolder = pConnection->GetCurrentFolder();   
-
+      std::shared_ptr<IMAPFolder> pCurFolder = pConnection->GetCurrentFolder();
       if (!pCurFolder)
          return IMAPResult(IMAPResult::ResultNo, "No folder selected.");
-
       if (!pConnection->CheckPermission(pCurFolder, ACLPermission::PermissionExpunge))
          return IMAPResult(IMAPResult::ResultBad, "ACL: Expunge permission denied (Required for EXPUNGE command).");
 
-      std::vector<__int64> expunged_messages_uid;
-      std::vector<__int64> expunged_messages_index;
-
-      std::function<bool(int, std::shared_ptr<Message>)> filter = [&expunged_messages_index, &expunged_messages_uid](int index, std::shared_ptr<Message> message)
-      {
-         if (message->GetFlagDeleted())
-         {
-            expunged_messages_index.push_back(index);
-            expunged_messages_uid.push_back(message->GetID());
-            return true;
-         }
-
-         return false;
-      };
+      auto view = pConnection->GetCurrentFolderView();
+      if (!view)
+         return IMAPResult(IMAPResult::ResultNo, "No folder selected.");
 
       auto messages = MessagesContainer::Instance()->GetMessages(pCurFolder->GetAccountID(), pCurFolder->GetID());
-      messages->DeleteMessages(filter);
+      view->AppendNewMessages(messages);
 
-      auto iterExpunged = expunged_messages_index.begin();
+      std::set<__int64> messages_to_delete;
+      auto entries = view->GetAllEntries();
+      std::set<__int64> view_message_ids;
+      for (const auto &entry : entries)
+         view_message_ids.insert(entry.second.message_id);
+      auto view_messages = messages->GetCopyByIds(view_message_ids);
 
-      String sResponse;
-      while (iterExpunged != expunged_messages_index.end())
+      for (const auto &entry : entries)
       {
-         String sTemp;
-         sTemp.Format(_T("* %d EXPUNGE\r\n"), (*iterExpunged));
-         sResponse += sTemp;
-         iterExpunged++;
+         auto iter = view_messages.find(entry.second.message_id);
+         if (iter == view_messages.end())
+         {
+            view->MarkVanished(entry.second.message_id);
+            continue;
+         }
+         if (iter->second->GetFlagDeleted())
+            messages_to_delete.insert(entry.second.message_id);
       }
 
+      auto deleted_message_ids = messages->DeleteMessagesById(messages_to_delete);
+      auto expunged_sequences = view->RemoveMessages(deleted_message_ids);
+      pConnection->RemoveRecentMessages(deleted_message_ids);
+
+      String sResponse;
+      for (int sequence : expunged_sequences)
+      {
+         String sTemp;
+         sTemp.Format(_T("* %d EXPUNGE\r\n"), sequence);
+         sResponse += sTemp;
+      }
       pConnection->SendAsciiData(sResponse);
 
-      if (!expunged_messages_uid.empty())
+      if (!deleted_message_ids.empty())
       {
-         auto recent_messages = pConnection->GetRecentMessages();
-
-         for (__int64 messageUid : expunged_messages_uid)
-         {
-            auto recent_messages_it = recent_messages.find(messageUid);
-            if (recent_messages_it != recent_messages.end())
-               recent_messages.erase(recent_messages_it);
-         }
-         
-
-         // Messages have been expunged
-         // Notify the mailbox notifier that the mailbox contents have changed.
-         std::shared_ptr<ChangeNotification> pNotification = 
-            std::shared_ptr<ChangeNotification>(new ChangeNotification(pCurFolder->GetAccountID(), pCurFolder->GetID(), ChangeNotification::NotificationMessageDeleted, expunged_messages_index));
-
+         std::shared_ptr<ChangeNotification> pNotification =
+            std::shared_ptr<ChangeNotification>(new ChangeNotification(pCurFolder->GetAccountID(), pCurFolder->GetID(), ChangeNotification::NotificationMessageDeleted, deleted_message_ids));
          Application::Instance()->GetNotificationServer()->SendNotification(pConnection->GetNotificationClient(), pNotification);
       }
 
-
-      // We're done.
       sResponse = pArgument->Tag() + " OK EXPUNGE Completed\r\n";
-      pConnection->SendAsciiData(sResponse);   
-
+      pConnection->SendAsciiData(sResponse);
       return IMAPResult();
    }
 }

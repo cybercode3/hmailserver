@@ -163,7 +163,7 @@ namespace RegressionTests.AntiSpam
          var smtpClientSimulator = new SmtpClientSimulator();
 
          _settings.AntiSpam.SpamAssassinEnabled = true;
-         _settings.AntiSpam.SpamAssassinHost = "localholst"; // <- mispelled
+         _settings.AntiSpam.SpamAssassinHost = "localholst"; // <- misspelled
          smtpClientSimulator.Send(account.Address, account.Address, "SA test", "This is a test message.");
          string sMessageContents = Pop3ClientSimulator.AssertGetFirstMessageText(account.Address, "test");
          if (sMessageContents.Contains("X-Spam-Status"))
@@ -181,7 +181,7 @@ namespace RegressionTests.AntiSpam
          var smtpClientSimulator = new SmtpClientSimulator();
 
          _settings.AntiSpam.SpamAssassinEnabled = true;
-         _settings.AntiSpam.SpamAssassinHost = "localhost"; // <- mispelled
+         _settings.AntiSpam.SpamAssassinHost = "localhost";
          _settings.AntiSpam.SpamAssassinPort = 12345;
 
          smtpClientSimulator.Send(account.Address, account.Address, "SA test", "This is a test message.");

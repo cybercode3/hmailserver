@@ -53,17 +53,17 @@ namespace HM
 
       const String originalFileName = PersistentMessage::GetFileName(recipientAccount, pOriginalMessage);
 
+      MimeHeader header;
+      AnsiString sHeader = PersistentMessage::LoadHeader(originalFileName);
+      header.Load(sHeader, sHeader.GetLength(), true);
+
+      String sOldSubject;
+      if (header.GetField("Subject"))
+         sOldSubject = header.GetField("Subject")->GetValue();
+
       if (sModifiedSubject.Find(_T("%")) >= 0 || sModifiedBody.Find(_T("%")) >= 0)
       {
          // Replace macros in the string.
-         MimeHeader header;
-         AnsiString sHeader = PersistentMessage::LoadHeader(originalFileName);
-         header.Load(sHeader, sHeader.GetLength(), true);
-
-         String sOldSubject;
-         if (header.GetField("Subject"))
-            sOldSubject = header.GetField("Subject")->GetValue();
-
          sModifiedSubject.ReplaceNoCase(_T("%SUBJECT%"), sOldSubject);
          sModifiedBody.ReplaceNoCase(_T("%SUBJECT%"), sOldSubject);
       }
@@ -72,15 +72,6 @@ namespace HM
       {
          // Parse out the subject in the original
          // message, so that we can Re: that..
-         MimeHeader header;
-
-         AnsiString sHeader = PersistentMessage::LoadHeader(originalFileName);
-         header.Load(sHeader, sHeader.GetLength(), true);
-
-         String sOldSubject;
-         if (header.GetField("Subject"))
-            sOldSubject = header.GetField("Subject")->GetValue();
-
          sModifiedSubject = "Re: " + sOldSubject;
       }
 
@@ -105,6 +96,7 @@ namespace HM
       pNewMsgData->SetFrom(recipientAccount->GetAddress());
       pNewMsgData->SetTo(sToAddress);
       pNewMsgData->SetSubject(sModifiedSubject);
+      pNewMsgData->SetReplyThreadingHeaders(header.GetRawFieldValue("Message-ID"), header.GetRawFieldValue("References"));
       pNewMsgData->SetBody(sModifiedBody);
 	  pNewMsgData->SetAutoReplied();
       pNewMsgData->IncreaseRuleLoopCount();

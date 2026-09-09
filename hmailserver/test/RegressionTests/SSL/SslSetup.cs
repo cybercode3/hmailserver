@@ -9,6 +9,14 @@ namespace RegressionTests.SSL
 {
    public class SslSetup
    {
+      private static readonly int[] SslPorts =
+      {
+         25000, 11000, 14300,
+         25001, 11001, 14301,
+         25002, 11002, 14302,
+         25003, 11003, 14303
+      };
+
       public static void SetupSSLPorts(hMailServer.Application application, SslVersions sslVersions = null)
       {
          SSLCertificate sslCeritifcate = SetupSSLCertificate(application);
@@ -42,6 +50,22 @@ namespace RegressionTests.SSL
          
          application.Stop();
          application.Start();
+
+         WaitForPorts();
+      }
+
+      /// <summary>
+      ///    The listeners are not necessarily accepting connections when Start returns.
+      /// </summary>
+      private static void WaitForPorts()
+      {
+         foreach (int port in SslPorts)
+         {
+            int portNumber = port;
+
+            if (!Poll.Until(TimeSpan.FromSeconds(10), () => new TcpConnection().TestConnect(portNumber)))
+               Assert.Fail("Port " + portNumber + " was not opened.");
+         }
       }
 
       private static void AddPort(TCPIPPorts ports, int portNumber, eConnectionSecurity connectionSecurity, int sslCertificateId, eSessionType sessionType)

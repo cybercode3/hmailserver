@@ -243,7 +243,7 @@ namespace RegressionTests.API
 
          var back = new BackupRestore();
          back.InitializeBackupSettings();
-         back.SetBackupDir(@"C:\some-non-existant-directory");
+         back.SetBackupDir(@"C:\some-non-existent-directory");
          Assert.IsFalse(back.Execute());
 
          CustomAsserts.AssertReportedError("BACKUP ERROR: The specified backup directory is not accessible:");
@@ -268,7 +268,7 @@ namespace RegressionTests.API
 
          var back = new BackupRestore();
          back.InitializeBackupSettings();
-         back.SetBackupDir(@"C:\some-non-existant-directory");
+         back.SetBackupDir(@"C:\some-non-existent-directory");
          Assert.IsFalse(back.Execute());
 
          CustomAsserts.AssertReportedError("BACKUP ERROR: The specified backup directory is not accessible:");
@@ -752,6 +752,44 @@ namespace RegressionTests.API
          Assert.IsTrue(message.Contains("OnClientLogin-IMAP"));
          Assert.IsTrue(message.Contains("IsAuthenticated: True"));
          Assert.IsTrue(message.Contains("Username: test@test.com")); // Should be empty, Username isn't available at this time.
+      }
+
+      [Test]
+      public void TestOnClientLogon_IMAP_Authenticate()
+      {
+         var domain = SingletonProvider<TestSetup>.Instance.AddTestDomain();
+         SingletonProvider<TestSetup>.Instance.AddAccount(domain, "test@example.test", "test");
+
+         var app = SingletonProvider<TestSetup>.Instance.GetApp();
+         var scripting = app.Settings.Scripting;
+         app.Settings.IMAPSASLPlainEnabled = true;
+
+         var script = "Sub OnClientLogon(oClient) " + Environment.NewLine +
+                      " EventLog.Write(\"OnClientLogin-IMAP-Authenticate\")" + Environment.NewLine +
+                      " EventLog.Write(\"IsAuthenticated: \" & oClient.Authenticated) " + Environment.NewLine +
+                      " EventLog.Write(\"Username: \" & oClient.Username) " + Environment.NewLine +
+                      "End Sub" + Environment.NewLine + Environment.NewLine;
+
+         File.WriteAllText(scripting.CurrentScriptFile, script);
+         scripting.Enabled = true;
+         scripting.Reload();
+
+         var eventLogFile = app.Settings.Logging.CurrentEventLog;
+         if (File.Exists(eventLogFile))
+            File.Delete(eventLogFile);
+
+         var token = Convert.ToBase64String(Encoding.ASCII.GetBytes("\0test@example.test\0test"));
+         var simulator = new ImapClientSimulator();
+         simulator.Connect();
+         var result = simulator.SendSingleCommand("A01 AUTHENTICATE PLAIN " + token);
+         Assert.IsTrue(result.Contains("A01 OK LOGIN completed"), result);
+         simulator.Disconnect();
+
+         var message = TestSetup.ReadExistingTextFile(eventLogFile);
+         Assert.IsNotEmpty(message);
+         Assert.IsTrue(message.Contains("OnClientLogin-IMAP-Authenticate"));
+         Assert.IsTrue(message.Contains("IsAuthenticated: True"));
+         Assert.IsTrue(message.Contains("Username: test@example.test"));
       }
 
       [Test]

@@ -155,6 +155,8 @@ namespace HM
    void
    Cache<T>::SetTTL(int iNewVal)
    {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
       ttl_ = iNewVal;
 
       no_of_misses_ = 0;
@@ -166,6 +168,8 @@ namespace HM
    void
    Cache<T>::SetEnabled(bool bEnabled)
    {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
       enabled_ = bEnabled;
 
       if (!enabled_)
@@ -176,6 +180,8 @@ namespace HM
    void
    Cache<T>::SetMaxSize(size_t max_size)
    {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
       max_size_ = max_size;
    }
 
@@ -183,6 +189,8 @@ namespace HM
    size_t
    Cache<T>::GetMaxSize()
    {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
       return max_size_;
    }
 
@@ -191,6 +199,8 @@ namespace HM
    size_t
    Cache<T>::GetSize()
    {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
       return current_estimated_size_;
    }
 
@@ -358,13 +368,15 @@ namespace HM
    void
    Cache<T>::AdjustEstimatedSize(bool increase, size_t size_change)
    {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
       if (increase)
       {
          current_estimated_size_ += size_change;
       }
       else
       {
-         if (size_change > current_estimated_size_)
+         if (current_estimated_size_ >= size_change)
             current_estimated_size_ -= size_change;
          else
             current_estimated_size_ = 0;

@@ -185,7 +185,7 @@ namespace RegressionTests.SMTP
          Assert.AreEqual(expectedResponse + "\r\n", result);
       }
 
-      private void AssertValidMailRcptToCommand(string comamnd)
+      private void AssertValidMailRcptToCommand(string command)
       {
          var smtpClientSimulator = new TcpConnection();
          smtpClientSimulator.Connect(25);
@@ -195,7 +195,7 @@ namespace RegressionTests.SMTP
          smtpClientSimulator.Send("MAIL FROM: <test@test.com>\r\n");
          Assert.IsTrue(smtpClientSimulator.Receive().StartsWith("250"));
 
-         string result = smtpClientSimulator.SendAndReceive(comamnd + "\r\n");
+         string result = smtpClientSimulator.SendAndReceive(command + "\r\n");
 
          smtpClientSimulator.Disconnect();
 

@@ -1,35 +1,34 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 
 namespace RegressionTests.Infrastructure
 {
-   class RetryHelper
+   public class RetryHelper
    {
-      public delegate void ActionDelegate();
-
-      public static void TryAction(TimeSpan duration, ActionDelegate action)
+      public static void TryAction(TimeSpan timeout, Action action)
       {
-         DateTime timeout = DateTime.Now + duration;
+         TryAction(action, TimeSpan.FromMilliseconds(500), timeout);
+      }
 
-         while (DateTime.Now < timeout)
+      public static void TryAction(Action action, TimeSpan retryInterval, TimeSpan timeout)
+      {
+         DateTime endTime = DateTime.Now + timeout;
+
+         while (true)
          {
             try
             {
                action();
                return;
             }
-            catch 
+            catch
             {
-               // Will retry.
+               if (DateTime.Now > endTime)
+                  throw;
+
+               Thread.Sleep(retryInterval);
             }
-
-            Thread.Sleep(TimeSpan.FromMilliseconds(500));
          }
-
-         action();
       }
-      
    }
 }

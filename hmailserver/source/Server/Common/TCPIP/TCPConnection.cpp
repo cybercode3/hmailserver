@@ -34,6 +34,7 @@ namespace HM
       std::shared_ptr<Event> disconnected,
       AnsiString expected_remote_hostname) :
       connection_security_(connection_security),
+      strand_(boost::asio::make_strand(io_context)),
       socket_(io_context),
       ssl_socket_(socket_, context),
       resolver_(io_context),
@@ -127,13 +128,13 @@ namespace HM
    }
 
    void
-      TCPConnection::StartAsyncConnect_(const String& ip_adress, int port)
+      TCPConnection::StartAsyncConnect_(const String& ip_address, int port)
    {
-      IPAddress adress;
-      adress.TryParse(ip_adress, true);
+      IPAddress address;
+      address.TryParse(ip_address, true);
 
       tcp::endpoint ep;
-      ep.address(adress.GetAddress());
+      ep.address(address.GetAddress());
       ep.port(port);
 
       //// Check that we don't try to connect to a port we're listening on. Doing
@@ -155,7 +156,8 @@ namespace HM
       // Attempt a connection to the first endpoint in the list. Each endpoint
       // will be tried until we successfully establish a connection.
       socket_.async_connect(ep,
-         std::bind(&TCPConnection::AsyncConnectCompleted, shared_from_this(), std::placeholders::_1));
+         boost::asio::bind_executor(strand_,
+            std::bind(&TCPConnection::AsyncConnectCompleted, shared_from_this(), std::placeholders::_1)));
 
    }
 
@@ -192,6 +194,17 @@ namespace HM
          EnqueueHandshake();
       }
    }
+   void
+      TCPConnection::DispatchProcessOperationQueue_()
+   {
+      auto self = shared_from_this();
+      boost::asio::dispatch(strand_, [self]()
+      {
+         self->ProcessOperationQueue_(0);
+      });
+   }
+
+
 
    void
       TCPConnection::ProcessOperationQueue_(int recurse_level)
@@ -220,7 +233,7 @@ namespace HM
       case IOOperation::BCTWrite:
       {
          std::shared_ptr<ByteBuffer> pBuf = operation->GetBuffer();
-         AsyncWrite(pBuf);
+         AsyncWrite(pBuf, operation->GetLogData());
          break;
       }
       case IOOperation::BCTRead:
@@ -270,7 +283,7 @@ namespace HM
       std::shared_ptr<IOOperation> operation = std::shared_ptr<IOOperation>(new IOOperation(IOOperation::BCTDisconnect, pBuf));
       operation_queue_.Push(operation);
 
-      ProcessOperationQueue_(0);
+      DispatchProcessOperationQueue_();
    }
 
 
@@ -304,7 +317,7 @@ namespace HM
       std::shared_ptr<IOOperation> operation = std::shared_ptr<IOOperation>(new IOOperation(IOOperation::BCTHandshake, pBuf));
       operation_queue_.Push(operation);
 
-      ProcessOperationQueue_(0);
+      DispatchProcessOperationQueue_();
    }
 
 
@@ -380,8 +393,9 @@ namespace HM
          boost::asio::ssl::stream_base::server;
 
       ssl_socket_.async_handshake(handshakeType,
-         std::bind(&TCPConnection::AsyncHandshakeCompleted, shared_from_this(),
-            std::placeholders::_1));
+         boost::asio::bind_executor(strand_,
+            std::bind(&TCPConnection::AsyncHandshakeCompleted, shared_from_this(),
+               std::placeholders::_1)));
    }
 
 
@@ -438,7 +452,7 @@ namespace HM
       std::shared_ptr<IOOperation> operation = std::shared_ptr<IOOperation>(new IOOperation(IOOperation::BCTShutdownSend, pBuf));
       operation_queue_.Push(operation);
 
-      ProcessOperationQueue_(0);
+      DispatchProcessOperationQueue_();
    }
 
    void
@@ -448,42 +462,42 @@ namespace HM
    }
 
    void
-      TCPConnection::EnqueueRead(const AnsiString& delimitor)
+      TCPConnection::EnqueueRead(const AnsiString& delimiter)
    {
       ThrowIfNotConnected_();
 
-      std::shared_ptr<IOOperation> operation = std::shared_ptr<IOOperation>(new IOOperation(IOOperation::BCTRead, delimitor));
+      std::shared_ptr<IOOperation> operation = std::shared_ptr<IOOperation>(new IOOperation(IOOperation::BCTRead, delimiter));
       operation_queue_.Push(operation);
 
-      ProcessOperationQueue_(0);
+      DispatchProcessOperationQueue_();
    }
 
    void
-      TCPConnection::AsyncRead(const AnsiString& delimitor)
+      TCPConnection::AsyncRead(const AnsiString& delimiter)
    {
       UpdateAutoLogoutTimer();
 
-      std::function<void(const boost::system::error_code&, size_t)> AsyncReadCompletedFunction =
+      auto AsyncReadCompletedFunction = boost::asio::bind_executor(strand_,
          std::bind(&TCPConnection::AsyncReadCompleted, shared_from_this(),
             std::placeholders::_1,
-            std::placeholders::_2);
+            std::placeholders::_2));
 
       if (is_ssl_)
       {
-         if (delimitor.GetLength() == 0)
+         if (delimiter.GetLength() == 0)
             boost::asio::async_read(ssl_socket_, receive_buffer_, boost::asio::transfer_at_least(1), AsyncReadCompletedFunction);
          else
-            boost::asio::async_read_until(ssl_socket_, receive_buffer_, delimitor, AsyncReadCompletedFunction);
+            boost::asio::async_read_until(ssl_socket_, receive_buffer_, delimiter, AsyncReadCompletedFunction);
       }
       else
       {
-         if (delimitor.GetLength() == 0)
+         if (delimiter.GetLength() == 0)
          {
             boost::asio::async_read(socket_, receive_buffer_, boost::asio::transfer_at_least(1), AsyncReadCompletedFunction);
          }
          else
          {
-            boost::asio::async_read_until(socket_, receive_buffer_, delimitor, AsyncReadCompletedFunction);
+            boost::asio::async_read_until(socket_, receive_buffer_, delimiter, AsyncReadCompletedFunction);
          }
       }
 
@@ -500,13 +514,18 @@ namespace HM
          if (connection_state_ != StateConnected)
          {
             // The read failed, but we've already started the disconnection. So we should not log the failure
-            // or enqueue a new disconnect.
+            // or enqueue a new disconnect. The read is still done, so release it and let anything
+            // queued behind it run - on SSL it would otherwise be blocked until the connection times out.
+            operation_queue_.Pop(IOOperation::BCTRead);
+            ProcessOperationQueue_(0);
             return;
          }
 
          if (error == boost::asio::error::eof)
          {
             // Ignore end of file or end of stream error
+            operation_queue_.Pop(IOOperation::BCTRead);
+            ProcessOperationQueue_(0);
             return;
          }
 
@@ -541,15 +560,17 @@ namespace HM
             }
             catch (DisconnectedException&)
             {
+               operation_queue_.Pop(IOOperation::BCTRead);
                throw;
             }
             catch (...)
             {
                String message;
-               message.Format(_T("An error occured while parsing data. Data size: %d"), pBuffer->GetSize());
+               message.Format(_T("An error occurred while parsing data. Data size: %d"), pBuffer->GetSize());
 
                ReportError(ErrorManager::Medium, 5136, "TCPConnection::AsyncReadCompleted", message);
 
+               operation_queue_.Pop(IOOperation::BCTRead);
                throw;
             }
          }
@@ -574,15 +595,17 @@ namespace HM
             }
             catch (DisconnectedException&)
             {
+               operation_queue_.Pop(IOOperation::BCTRead);
                throw;
             }
             catch (...)
             {
                String message;
-               message.Format(_T("An error occured while parsing data. Data length: %d, Data: %s."), s.size(), String(s).c_str());
+               message.Format(_T("An error occurred while parsing data. Data length: %d, Data: %s."), s.size(), String(s).c_str());
 
                ReportError(ErrorManager::Medium, 5136, "TCPConnection::AsyncReadCompleted", message);
 
+               operation_queue_.Pop(IOOperation::BCTRead);
                throw;
             }
          }
@@ -595,83 +618,72 @@ namespace HM
    void
       TCPConnection::EnqueueWrite(const AnsiString& sData)
    {
+      EnqueueWrite(sData, "");
+   }
+
+   void
+      TCPConnection::EnqueueWrite(const AnsiString& sData, const AnsiString& log_data)
+   {
       AnsiString sTemp = sData;
       char* pBuf = sTemp.GetBuffer();
-
       std::shared_ptr<ByteBuffer> pBuffer = std::shared_ptr<ByteBuffer>(new ByteBuffer());
       pBuffer->Add((BYTE*)pBuf, sData.GetLength());
-
 #ifdef _DEBUG
       String sDebugOutput;
       sDebugOutput.Format(_T("SENT: %s"), String(sTemp).c_str());
       OutputDebugString(sDebugOutput);
 #endif
-
-      EnqueueWrite(pBuffer);
-
+      EnqueueWrite(pBuffer, log_data);
    }
 
    void
       TCPConnection::EnqueueWrite(std::shared_ptr<ByteBuffer> pBuffer)
    {
+      EnqueueWrite(pBuffer, "");
+   }
+
+   void
+      TCPConnection::EnqueueWrite(std::shared_ptr<ByteBuffer> pBuffer, const AnsiString& log_data)
+   {
       ThrowIfNotConnected_();
-
       std::shared_ptr<IOOperation> operation = std::shared_ptr<IOOperation>(new IOOperation(IOOperation::BCTWrite, pBuffer));
-
+      operation->SetLogData(log_data);
       operation_queue_.Push(operation);
-      ProcessOperationQueue_(0);
+      DispatchProcessOperationQueue_();
    }
 
    void
-      TCPConnection::AsyncWrite(std::shared_ptr<ByteBuffer> buffer)
+      TCPConnection::AsyncWrite(std::shared_ptr<ByteBuffer> buffer, const AnsiString& log_data)
    {
       UpdateAutoLogoutTimer();
-
-      std::function<void(const boost::system::error_code&, size_t)> AsyncWriteCompletedFunction =
+      auto AsyncWriteCompletedFunction = boost::asio::bind_executor(strand_,
          std::bind(&TCPConnection::AsyncWriteCompleted, shared_from_this(),
-            std::placeholders::_1,
-            std::placeholders::_2);
-
+            std::placeholders::_1, std::placeholders::_2, log_data));
       if (is_ssl_)
-         boost::asio::async_write
-         (ssl_socket_, boost::asio::buffer(buffer->GetCharBuffer(), buffer->GetSize()), AsyncWriteCompletedFunction);
+         boost::asio::async_write(ssl_socket_, boost::asio::buffer(buffer->GetCharBuffer(), buffer->GetSize()), AsyncWriteCompletedFunction);
       else
-         boost::asio::async_write
-         (socket_, boost::asio::buffer(buffer->GetCharBuffer(), buffer->GetSize()), AsyncWriteCompletedFunction);
-
-
+         boost::asio::async_write(socket_, boost::asio::buffer(buffer->GetCharBuffer(), buffer->GetSize()), AsyncWriteCompletedFunction);
    }
 
    void
-      TCPConnection::AsyncWriteCompleted(const boost::system::error_code& error, size_t bytes_transferred)
+      TCPConnection::AsyncWriteCompleted(const boost::system::error_code& error, size_t bytes_transferred, const AnsiString& log_data)
    {
       UpdateAutoLogoutTimer();
-
+      if (!log_data.IsEmpty() && error.value() == 0)
+         LogSentData(log_data);
       if (error.value() != 0)
       {
          if (connection_state_ != StateConnected)
-         {
-            // The write failed, but we've already started the disconnection. So we should not log the failure
-            // or enqueue a new disconnect.
             return;
-         }
-
          String message;
          message.Format(_T("The write operation failed. Bytes transferred: %d"), bytes_transferred);
          ReportDebugMessage(message, error);
-
          EnqueueDisconnect();
       }
-      else
+      else if (!operation_queue_.ContainsQueuedSendOperation())
       {
-         bool containsQueuedSendOperations = operation_queue_.ContainsQueuedSendOperation();
-
-         if (!containsQueuedSendOperations)
-         {
-            OnDataSent();
-         }
+         OnDataSent();
       }
-
       operation_queue_.Pop(IOOperation::BCTWrite);
       ProcessOperationQueue_(0);
    }
@@ -789,7 +801,8 @@ namespace HM
       // Put a timeout...
       timer_.expires_after(std::chrono::seconds(timeout_));
 
-      timer_.async_wait(std::bind(&TCPConnection::OnTimeout, std::weak_ptr<TCPConnection>(shared_from_this()), std::placeholders::_1));
+      timer_.async_wait(boost::asio::bind_executor(strand_,
+         std::bind(&TCPConnection::OnTimeout, std::weak_ptr<TCPConnection>(shared_from_this()), std::placeholders::_1)));
    }
 
    void
@@ -844,7 +857,7 @@ namespace HM
          EnqueueDisconnect();
 
          // Make sure the autologout timer is triggered. This is done in OnConnectionTimeout if we send
-         // a timeout message, but if we don't we need to make sure its triggerd.
+         // a timeout message, but if we don't we need to make sure its triggered.
          UpdateAutoLogoutTimer();
       }
    }

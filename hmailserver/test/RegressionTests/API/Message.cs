@@ -24,7 +24,7 @@ namespace RegressionTests.API
       {
          Account account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "encode@test.com", "test");
 
-         string filename = Path.Combine(Path.GetTempPath(), "dummy.txt");
+         string filename = Path.Combine(TestSetup.GetSharedTempDirectory(), "dummy.txt");
          File.WriteAllText(filename, "tjena moss");
 
          var message = new hMailServer.Message();
@@ -263,7 +263,7 @@ namespace RegressionTests.API
       {
          Account account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "encode@test.com", "test");
 
-         string filename = Path.Combine(Path.GetTempPath(), "dummy.txt");
+         string filename = Path.Combine(TestSetup.GetSharedTempDirectory(), "dummy.txt");
          File.WriteAllText(filename, "tjena moss");
 
          var message = new hMailServer.Message();

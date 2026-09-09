@@ -324,7 +324,7 @@ namespace HM
 
             if (!pBody)
             {
-               // Client is requesting an non-existant body.
+               // Client is requesting an non-existent body.
                return pBody;
             }
 

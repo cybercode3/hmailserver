@@ -8,6 +8,7 @@
 #include "IMAPResult.h"
 #include "IMAPConfiguration.h"
 #include "IMAPFolderContainer.h"
+#include "IMAPFolderView.h"
 
 #include "../Common/Application/ACLManager.h"
 #include "../Common/Application/TimeoutCalculator.h"
@@ -466,26 +467,23 @@ namespace HM
    void
    IMAPConnection::SendAsciiData(const AnsiString & sData)
    {
+      AnsiString log_data;
       if (Logger::Instance()->GetLogIMAP())
       {
-         // Let's tame these logs a bit. Disables IMAP SENT
-         // logging unless debug logging enabled or LogLevel > 2
-         // for lines with FETCH, STATUS or short )-only lines < 5
-         String sDataTmp = sData;
-         int iDataLenTmp = sDataTmp.GetLength();
-         log_level_ = IniFileSettings::Instance()->GetLogLevel();
-
-         if ((Logger::Instance()->GetLogDebug()) || (log_level_ > 2) || (!(sDataTmp.Find(_T("FETCH")) > 0) && !(sDataTmp.Find(_T("STATUS")) > 0) && iDataLenTmp >= 5))
+         if (sData.GetLength() < 1000)
          {
             String sLogData = _T("SENT: ") + sData;
             sLogData.TrimRight(_T("\r\n"));
-
-            LOG_IMAP(GetSessionID(),GetIPAddressString(), sLogData);
+            log_data = sLogData;
          }
-         // Logging gets skipped otherwise
       }
+      EnqueueWrite(sData, log_data);
+   }
 
-      EnqueueWrite(sData);
+   void
+   IMAPConnection::LogSentData(const AnsiString &log_data)
+   {
+      LOG_IMAP(GetSessionID(), GetIPAddressString(), String(log_data));
    }
 
    IMAPConnection::eIMAPCommandType 
@@ -798,41 +796,89 @@ namespace HM
       SendAsciiData(sEntireString);
    }
 
+   std::shared_ptr<IMAPFolder>
+   IMAPConnection::GetCurrentFolder() const
+   {
+      StateLock lock(state_mutex_);
+      return current_folder_;
+   }
+
+   std::shared_ptr<IMAPFolderView>
+   IMAPConnection::GetCurrentFolderView() const
+   {
+      StateLock lock(state_mutex_);
+      return current_folder_view_;
+   }
+
+   bool
+   IMAPConnection::GetCurrentFolderReadOnly() const
+   {
+      StateLock lock(state_mutex_);
+      return current_folder_read_only_;
+   }
+
    void
    IMAPConnection::CloseCurrentFolder()
    {
-      if (!current_folder_)
-         return;
+      std::shared_ptr<IMAPFolder> closedFolder;
+      bool readOnly = false;
+
+      {
+         // Unload the folder under the lock, so a notification client on another thread either
+         // completes against the old folder or sees it already gone. Nothing slow in here.
+         StateLock lock(state_mutex_);
+
+         if (!current_folder_)
+            return;
+
+         closedFolder = current_folder_;
+         readOnly = current_folder_read_only_;
+
+         current_folder_.reset();
+         current_folder_view_.reset();
+      }
 
       notification_client_->UnsubscribeMessageChanges();
 
       // Set the recent flag on all messages in the folder. Since the user has been notified
       // about these messages, they are no longer recent. This doesn't happen if the folder
       // is in read-only mode - if it has been selected using the EXAMINE command.
-      if (!current_folder_read_only_)
+      if (!readOnly)
       {
-         current_folder_->GetMessages()->RemoveRecentFlags();
+         closedFolder->GetMessages()->RemoveRecentFlags();
       }
-
-      // Unload the folder.
-      current_folder_.reset();
    }
 
    void
-   IMAPConnection::SetCurrentFolder(std::shared_ptr<IMAPFolder> pFolder, bool readOnly)
+   IMAPConnection::SetCurrentFolder(std::shared_ptr<IMAPFolder> pFolder, bool readOnly, std::shared_ptr<Messages> messages)
    {
-      // First close the currently set folder. This will cause an unsubscribe from the 
-      // current folder to be made and \recent flags to be removed.
+      // First close the currently set folder. This will cause an unsubscribe from the
+      // current folder to be made and recent flags to be removed.
       CloseCurrentFolder();
 
-      // Select the new folder
-      current_folder_ = pFolder;
-      current_folder_read_only_ = readOnly;
+      std::shared_ptr<IMAPFolderView> view;
 
-      // Subscribe to changes in the new folder.
-      if (current_folder_)
+      if (pFolder)
       {
-         notification_client_->SubscribeMessageChanges(current_folder_->GetAccountID(), pFolder->GetID());
+         // Build this session's view before the folder becomes visible, so a notification
+         // arriving immediately after never sees a folder without a view.
+         view = std::shared_ptr<IMAPFolderView>(new IMAPFolderView(pFolder->GetAccountID(), pFolder->GetID()));
+         view->Initialize(messages);
+      }
+
+      {
+         // Select the new folder.
+         StateLock lock(state_mutex_);
+
+         current_folder_ = pFolder;
+         current_folder_view_ = view;
+         current_folder_read_only_ = readOnly;
+      }
+
+      // Subscribe after the folder is visible, so a notification arriving immediately finds it.
+      if (pFolder)
+      {
+         notification_client_->SubscribeMessageChanges(pFolder->GetAccountID(), pFolder->GetID());
       }
    }
 
@@ -849,6 +895,7 @@ namespace HM
    // Switch in or out idling mode. 
    //---------------------------------------------------------------------------()
    {
+      StateLock lock(state_mutex_);
       is_idling_ = bNewVal;
    }
 
@@ -859,6 +906,7 @@ namespace HM
    // Switch in or out idling mode. 
    //---------------------------------------------------------------------------()
    {
+      StateLock lock(state_mutex_);
       return is_idling_;
    }
 
@@ -934,16 +982,41 @@ namespace HM
       EnqueueHandshake();
    }
 
-   void 
+   void
    IMAPConnection::SetRecentMessages(const std::set<__int64> &messages)
    {
+      StateLock lock(state_mutex_);
       recent_messages_ = messages;
    }
 
-   std::set<__int64>& 
-   IMAPConnection::GetRecentMessages()
+   void
+   IMAPConnection::AddRecentMessage(__int64 message_id)
    {
-      return recent_messages_;
+      StateLock lock(state_mutex_);
+      recent_messages_.insert(message_id);
+   }
+
+   void
+   IMAPConnection::RemoveRecentMessages(const std::vector<__int64> &message_ids)
+   {
+      StateLock lock(state_mutex_);
+
+      for (__int64 message_id : message_ids)
+         recent_messages_.erase(message_id);
+   }
+
+   bool
+   IMAPConnection::IsRecentMessage(__int64 message_id) const
+   {
+      StateLock lock(state_mutex_);
+      return recent_messages_.find(message_id) != recent_messages_.end();
+   }
+
+   size_t
+   IMAPConnection::GetRecentMessageCount() const
+   {
+      StateLock lock(state_mutex_);
+      return recent_messages_.size();
    }
 }
 

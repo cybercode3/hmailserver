@@ -22,7 +22,7 @@ namespace HM
 
    private:
 
-      String GenerateReceivedHeader_(const String &overriden_received_ip);
+      String GenerateReceivedHeader_(const String &overridden_received_ip);
 
       String username_;
       AnsiString remote_ip_address_;

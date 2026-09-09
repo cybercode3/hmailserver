@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Security;
 using System.Threading;
-using hMailServer.Test.Infrastructure;
+using RegressionTests.Infrastructure;
 
 namespace VMTestRunner.Console
 {
@@ -201,7 +202,20 @@ namespace VMTestRunner.Console
          }
       }
 
-      public void RunProgramInGuest(string fullPath, string param)
+      // The exit code is read inside the guest - a Process object doesn't keep its
+      // ExitCode when it's serialized back to us.
+      private const string RunProgramScript =
+         "param($exe, $argList) " +
+         "if ($argList) { $process = Start-Process -FilePath $exe -ArgumentList $argList -Wait -PassThru } " +
+         "else { $process = Start-Process -FilePath $exe -Wait -PassThru } " +
+         "$process.ExitCode";
+
+      /// <summary>
+      /// Runs a program in the guest. throwOnFailure should only be used for programs
+      /// which are known to return a meaningful exit code - 'net stop' for example
+      /// fails if the service isn't running, which isn't an error to us.
+      /// </summary>
+      public void RunProgramInGuest(string fullPath, string param, bool throwOnFailure = false)
       {
          Debug($"Executing {fullPath} {param}...");
 
@@ -211,12 +225,30 @@ namespace VMTestRunner.Console
               .AddParameter("VMName", _vmName)
               .AddParameter("Credential", _credential)
               .AddParameter("ScriptBlock",
-                  ScriptBlock.Create("param($exe, $argList) if ($argList) { Start-Process -FilePath $exe -ArgumentList $argList -Wait -PassThru } else { Start-Process -FilePath $exe -Wait -PassThru }"))
+                  ScriptBlock.Create(RunProgramScript))
               .AddParameter("ArgumentList", new object[] { fullPath, param });
 
-            ps.Invoke();
+            var results = ps.Invoke();
             HandleErrors(ps, "RunProgramInGuest");
+
+            if (!throwOnFailure)
+               return;
+
+            int exitCode = GetExitCode(results);
+
+            if (exitCode != 0)
+               throw new Exception($"RunProgramInGuest: {fullPath} {param} failed with exit code {exitCode}.");
          }
+      }
+
+      private int GetExitCode(Collection<PSObject> results)
+      {
+         var exitCode = results.FirstOrDefault()?.BaseObject;
+
+         if (!(exitCode is int))
+            throw new Exception($"RunProgramInGuest: The exit code of the process could not be determined. Result: {exitCode ?? "(none)"}");
+
+         return (int) exitCode;
       }
 
       public void CreateDirectory(string name)

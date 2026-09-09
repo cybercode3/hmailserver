@@ -120,24 +120,25 @@ namespace RegressionTests.Infrastructure
 
       public static void AssertRecipientsInDeliveryQueue(int count, bool forceSend)
       {
+         // The queue is normally already in the expected state, so check that before
+         // paying for a delivery run.
+         if (TestSetup.GetNumberOfMessagesInDeliveryQueue() == count)
+            return;
+
          if (forceSend)
             TestSetup.SendMessagesInQueue();
 
-         DateTime timeoutTime = DateTime.UtcNow.AddSeconds(20);
-
-         while (DateTime.UtcNow < timeoutTime)
+         if (Poll.Until(TimeSpan.FromSeconds(20), () =>
          {
             if (TestSetup.GetNumberOfMessagesInDeliveryQueue() == count)
-               return;
+               return true;
 
             TestSetup.SendMessagesInQueue();
-
-            Thread.Sleep(TimeSpan.FromMilliseconds(100));
-         }
+            return false;
+         }))
+            return;
 
          int currentCount = TestSetup.GetNumberOfMessagesInDeliveryQueue();
-         if (currentCount == count)
-            return;
 
          TestSetup.DeleteMessagesInQueue();
 
@@ -202,18 +203,8 @@ namespace RegressionTests.Infrastructure
             AssertRecipientsInDeliveryQueue(0);
          }
 
-         int currentCount = 0;
-         int timeout = 100;
-         while (timeout > 0)
-         {
-            currentCount = folder.Messages.Count;
-
-            if (currentCount == expectedCount)
-               return;
-
-            timeout--;
-            Thread.Sleep(100);
-         }
+         if (Poll.Until(TimeSpan.FromSeconds(10), () => folder.Messages.Count == expectedCount))
+            return;
 
          string error = "Wrong number of messages in mailbox " + folder.Name;
          Assert.Fail(error);
@@ -221,17 +212,8 @@ namespace RegressionTests.Infrastructure
 
       public static Message AssertRetrieveFirstMessage(IMAPFolder folder)
       {
-         int timeout = 100;
-         while (timeout > 0)
-         {
-            if (folder.Messages.Count > 0)
-            {
-               return folder.Messages[0];
-            }
-
-            timeout--;
-            Thread.Sleep(100);
-         }
+         if (Poll.Until(TimeSpan.FromSeconds(10), () => folder.Messages.Count > 0))
+            return folder.Messages[0];
 
          string error = "Could not retrieve message from folder";
          Assert.Fail(error);
@@ -241,20 +223,21 @@ namespace RegressionTests.Infrastructure
 
       public static IMAPFolder AssertFolderExists(IMAPFolders folders, string folderName)
       {
-         int timeout = 100;
-         while (timeout > 0)
+         IMAPFolder folder = null;
+
+         if (Poll.Until(TimeSpan.FromSeconds(10), () =>
          {
             try
             {
-               return folders.get_ItemByName(folderName);
+               folder = folders.get_ItemByName(folderName);
+               return true;
             }
             catch (Exception)
             {
+               return false;
             }
-
-            timeout--;
-            Thread.Sleep(100);
-         }
+         }))
+            return folder;
 
          string error = "Folder could not be found " + folderName;
          Assert.Fail(error);

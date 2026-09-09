@@ -15,7 +15,7 @@ namespace HM
 {
    IOOperationQueue::IOOperationQueue()
    {
-      
+
    }
 
    IOOperationQueue::~IOOperationQueue(void)
@@ -58,7 +58,7 @@ namespace HM
 
       }
 
-      ErrorManager::Instance()->ReportError(ErrorManager::Critical, 5131, "IOOperationQueue::Pop()", "Trying to remove non-existant item from operation list.");
+      ErrorManager::Instance()->ReportError(ErrorManager::Critical, 5131, "IOOperationQueue::Pop()", "Trying to remove non-existent item from operation list.");
    }
 
    bool 
@@ -128,7 +128,11 @@ namespace HM
                {
                   switch (pendingType)
                   {
-                  case IOOperation::BCTWrite:         // We may send data while we're processing data (normal responses)
+                  case IOOperation::BCTWrite:
+                     // We may send data while we're processing data (normal responses, and IMAP
+                     // notifications during IDLE). TCPConnection runs both in the same strand, so
+                     // a ssl::stream is never entered from two threads at once.
+                     break;
                   case IOOperation::BCTDisconnect:   // We may disconnect while we're processing data
                   case IOOperation::BCTShutdownSend: // It's OK to close the sending even though we're receiving data.
                      break;

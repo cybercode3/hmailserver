@@ -9,9 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VMWareIntegration.Common", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VMWareIntegration.Console", "VMwareIntegration\VMWareIntegration.Console\VMWareIntegration.Console.csproj", "{4330EA2B-FA91-4725-850A-0D0992983B49}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StressTest", "StressTest\StressTest.csproj", "{BCB5B5E3-291F-475E-8200-32C918FB95C1}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hMailServer.Test.Infrastructure", "hMailServer.Test.Infrastructure\hMailServer.Test.Infrastructure.csproj", "{CBDEF4D1-5545-4693-B6DF-17D6EDE484CF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VolumeTests", "VolumeTests\VolumeTests.csproj", "{BCB5B5E3-291F-475E-8200-32C918FB95C1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -35,10 +33,6 @@ Global
 		{BCB5B5E3-291F-475E-8200-32C918FB95C1}.Debug|x64.Build.0 = Debug|x64
 		{BCB5B5E3-291F-475E-8200-32C918FB95C1}.Release|x64.ActiveCfg = Release|x64
 		{BCB5B5E3-291F-475E-8200-32C918FB95C1}.Release|x64.Build.0 = Release|x64
-		{CBDEF4D1-5545-4693-B6DF-17D6EDE484CF}.Debug|x64.ActiveCfg = Debug|x64
-		{CBDEF4D1-5545-4693-B6DF-17D6EDE484CF}.Debug|x64.Build.0 = Debug|x64
-		{CBDEF4D1-5545-4693-B6DF-17D6EDE484CF}.Release|x64.ActiveCfg = Release|x64
-		{CBDEF4D1-5545-4693-B6DF-17D6EDE484CF}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

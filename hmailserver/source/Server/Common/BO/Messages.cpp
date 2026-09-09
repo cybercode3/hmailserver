@@ -45,6 +45,61 @@ namespace HM
 
    }
 
+   std::map<__int64, std::shared_ptr<Message>>
+   Messages::GetCopyByIds(const std::set<__int64> &message_ids) const
+   {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
+      std::map<__int64, std::shared_ptr<Message>> result;
+
+      for (std::shared_ptr<Message> message : vecObjects)
+      {
+         if (message_ids.find(message->GetID()) == message_ids.end())
+            continue;
+
+         result[message->GetID()] = std::shared_ptr<Message>(new Message(*message.get()));
+      }
+
+      return result;
+   }
+
+   std::map<__int64, std::shared_ptr<Message>>
+   Messages::GetItemsByIds(const std::set<__int64> &message_ids) const
+   {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
+      std::map<__int64, std::shared_ptr<Message>> result;
+
+      for (std::shared_ptr<Message> message : vecObjects)
+      {
+         if (message_ids.find(message->GetID()) == message_ids.end())
+            continue;
+
+         result[message->GetID()] = message;
+      }
+
+      return result;
+   }
+
+   std::shared_ptr<Message>
+   Messages::GetCopyByDBID(__int64 message_id) const
+   {
+      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
+
+      std::shared_ptr<Message> result;
+
+      for (std::shared_ptr<Message> message : vecObjects)
+      {
+         if (message->GetID() != message_id)
+            continue;
+
+         result = std::shared_ptr<Message>(new Message(*message.get()));
+         break;
+      }
+
+      return result;
+   }
+
    void
    Messages::GetRecentMessages(std::set<__int64> &recent_messages) const
    {
@@ -122,31 +177,42 @@ namespace HM
    
    }
 
-   void
-   Messages::DeleteMessages(std::function<bool(int, std::shared_ptr<Message>)> &filter)
+   std::vector<__int64>
+   Messages::DeleteMessages(const std::function<bool(std::shared_ptr<Message>)> &filter)
    {
       boost::lock_guard<boost::recursive_mutex> guard(_mutex);
 
-      std::vector<int> vecExpungedMessages;
+      std::vector<__int64> deleted_message_ids;
       auto iterMessage = vecObjects.begin();
 
-      int index = 0;
       while (iterMessage != vecObjects.end())
       {
-         index++;
-
          std::shared_ptr<Message> message = (*iterMessage);
 
-         if (filter(index, message))
+         if (filter(message))
          {
+            // Read the id first - deleting the message resets it.
+            deleted_message_ids.push_back(message->GetID());
+
             PersistentMessage::DeleteObject(message);
             iterMessage = vecObjects.erase(iterMessage);
-            index--;
          }
          else
             iterMessage++;
       }
 
+      return deleted_message_ids;
+   }
+
+   std::vector<__int64>
+   Messages::DeleteMessagesById(const std::set<__int64> &message_ids)
+   {
+      std::function<bool(std::shared_ptr<Message>)> filter = [&message_ids](std::shared_ptr<Message> message)
+      {
+         return message_ids.find(message->GetID()) != message_ids.end();
+      };
+
+      return DeleteMessages(filter);
    }
 
 
@@ -291,51 +357,5 @@ namespace HM
       return true;
    }
 
-   void 
-   Messages::Remove(__int64 iDBID)
-   //---------------------------------------------------------------------------()
-   // DESCRIPTION:
-   // Removes a message from the message list. This function does not delete
-   // the message from the actual database. It should only be used to remove
-   // an object, that has already been deleted in the database.
-   //---------------------------------------------------------------------------()
-   {
-      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
-
-      auto iterMessage = vecObjects.begin();
-
-      // Locate the message
-      while (iterMessage != vecObjects.end() && (*iterMessage)->GetID() != iDBID)
-         iterMessage++;
-
-      // If the message is found, remove it from the list now
-      if (iterMessage != vecObjects.end())
-         vecObjects.erase(iterMessage);
-   }
-
-   std::shared_ptr<Message>
-   Messages::GetItemByUID(unsigned int uid)
-   {
-      unsigned int dummy = 0;
-      return GetItemByUID(uid, dummy);
-   }
-
-
-   std::shared_ptr<Message>
-   Messages::GetItemByUID(unsigned int uid, unsigned int &foundIndex)
-   {
-      boost::lock_guard<boost::recursive_mutex> guard(_mutex);
-      foundIndex = 0;
-      for(std::shared_ptr<Message> item : vecObjects)
-      {
-         foundIndex++;
-
-         if (item->GetUID() == uid)
-            return item;
-      }
-
-      std::shared_ptr<Message> empty;
-      return empty;
-   }
 
 }

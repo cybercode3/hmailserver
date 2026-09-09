@@ -21,6 +21,7 @@
 
 #include "IMAPSimpleCommandParser.h"
 #include "MessagesContainer.h"
+#include "IMAPFolderView.h"
 
 #ifdef _DEBUG
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -289,7 +290,7 @@ namespace HM
 
       PersistentMessage::SaveObject(current_message_);
 
-      pConnection->GetRecentMessages().insert(current_message_->GetID());
+      pConnection->AddRecentMessage(current_message_->GetID());
 
       MessagesContainer::Instance()->SetFolderNeedsRefresh(destination_folder_->GetID());
 
@@ -300,8 +301,15 @@ namespace HM
           pConnection->GetCurrentFolder()->GetID() == destination_folder_->GetID())
       {
          std::shared_ptr<Messages> messages = destination_folder_->GetMessages();
-         sResponse += IMAPNotificationClient::GenerateExistsString(messages->GetCount());
-         sResponse += IMAPNotificationClient::GenerateRecentString((int) pConnection->GetRecentMessages().size());
+
+         auto view = pConnection->GetCurrentFolderView();
+         if (view)
+            view->AppendNewMessages(messages);
+
+         int message_count = view ? view->GetMessageCount() : messages->GetCount();
+
+         sResponse += IMAPNotificationClient::GenerateExistsString(message_count);
+         sResponse += IMAPNotificationClient::GenerateRecentString((int) pConnection->GetRecentMessageCount());
       }
 
       // Send the OK response to the client.

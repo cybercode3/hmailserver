@@ -66,7 +66,7 @@ namespace HM
 	   static inline const char* MediaText() { return "text"; }
 	   static inline const char* MediaImage() { return "image"; }
 	   static inline const char* MediaAudio() { return "audio"; }
-	   static inline const char* MediaVedio() { return "vedio"; }
+	   static inline const char* MediaVideo() { return "video"; }
 	   static inline const char* MediaApplication() { return "application"; }
 	   static inline const char* MediaMultiPart() { return "multipart"; }
 	   static inline const char* MediaMessage() { return "message"; }
@@ -184,6 +184,7 @@ namespace HM
 
 	   // set/get the values of header fields
 	   void SetField(const MimeField& field);
+      void InsertRawFieldValue(const AnsiString &pszFieldName, const AnsiString &pszFieldValue);
 	   MimeField* GetField(const char* pszFieldName) const;
       MimeField* GetField(unsigned int iIndex);
 	   
@@ -273,6 +274,15 @@ namespace HM
 		   *it = field;
 	   else
 		   fields_.push_back(field);
+   }
+
+   inline void MimeHeader::InsertRawFieldValue(const AnsiString & pszFieldName, const AnsiString & pszFieldValue)
+   {
+      MimeField fd;
+      fd.SetName(pszFieldName);
+      fd.SetValue(pszFieldValue);
+      headers_modified_ = true;
+      fields_.insert(fields_.begin(), fd);
    }
 
    // find a field by name

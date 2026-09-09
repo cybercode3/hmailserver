@@ -266,6 +266,50 @@ namespace HM
       return sRetVal;
    }
 
+   void
+   MessageData::SetReplyThreadingHeaders(const MessageData &source)
+   {
+      SetReplyThreadingHeaders(source.GetFieldValue("Message-ID"), source.GetFieldValue("References"));
+   }
+
+   // Control characters in a header value could be used to inject additional headers
+   // into the message we generate, so they are removed.
+   String
+   MessageData::RemoveControlCharacters_(const String &value)
+   {
+      String result;
+
+      for (auto character : value)
+      {
+         if (character >= 32 && character != 127)
+            result += character;
+      }
+
+      return result;
+   }
+
+   void
+   MessageData::SetReplyThreadingHeaders(const String &sourceMessageID, const String &sourceReferences)
+   {
+      const String originalMessageID = RemoveControlCharacters_(sourceMessageID);
+
+      if (originalMessageID.IsEmpty())
+         return;
+
+      SetFieldValue("In-Reply-To", originalMessageID);
+
+      String references = RemoveControlCharacters_(sourceReferences);
+      if (!references.ContainsNoCase(originalMessageID))
+      {
+         if (!references.IsEmpty())
+            references += " ";
+
+         references += originalMessageID;
+      }
+
+      SetFieldValue("References", references);
+   }
+
    int 
    MessageData::GetSize() const
    {
@@ -444,7 +488,7 @@ namespace HM
 
       if (!textPart && !htmlPart)
       {
-         // We don't have any text or HMTL part. Copy the main content
+         // We don't have any text or HTML part. Copy the main content
          // of the message to a new part, if the main content isn't empty.
          if (sMainBodyType == "" || sMainBodyType == "text/plain")
          {

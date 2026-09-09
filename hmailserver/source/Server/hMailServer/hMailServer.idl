@@ -506,6 +506,17 @@ typedef
 	[helpstring("\\Trash")] eSUTrash = 16,
 } eSpecialUse;
 
+typedef
+[uuid(90745436-4C3F-11D9-AD17-A0BCEA20CD16),
+	helpstring("Password hashing algorithm")]
+	enum
+{
+	[helpstring("Argon2id")]
+	ePWHashArgon2id = 1,
+	[helpstring("PBKDF2-SHA256")]
+	ePWHashPBKDF2SHA256 = 2,
+} ePasswordHashAlgorithm;
+
 // 
 // ENUMS END
 //
@@ -708,6 +719,18 @@ interface IInterfaceSettings : IDispatch{
    [propget, id(108), helpstring("Create default special-use folders (Sent, Drafts, Trash, Junk) for new accounts.")] HRESULT CreateDefaultSpecialUseFoldersEnabled([out, retval] VARIANT_BOOL *pVal);
    [propput, id(108), helpstring("Create default special-use folders (Sent, Drafts, Trash, Junk) for new accounts.")] HRESULT CreateDefaultSpecialUseFoldersEnabled([in] VARIANT_BOOL newVal);
 
+   [propget, id(109), helpstring("Algorithm used when hashing account passwords.")] HRESULT PasswordHashAlgorithm([out, retval] ePasswordHashAlgorithm *pVal);
+   [propput, id(109), helpstring("Algorithm used when hashing account passwords.")] HRESULT PasswordHashAlgorithm([in] ePasswordHashAlgorithm newVal);
+
+   [propget, id(110), helpstring("Memory cost in kilobytes used when hashing account passwords with Argon2id. 0 means the recommended default.")] HRESULT PasswordHashMemoryCost([out, retval] long *pVal);
+   [propput, id(110), helpstring("Memory cost in kilobytes used when hashing account passwords with Argon2id. 0 means the recommended default.")] HRESULT PasswordHashMemoryCost([in] long newVal);
+
+   [propget, id(111), helpstring("Iteration count used when hashing account passwords. 0 means the recommended default of the selected algorithm.")] HRESULT PasswordHashIterations([out, retval] long *pVal);
+   [propput, id(111), helpstring("Iteration count used when hashing account passwords. 0 means the recommended default of the selected algorithm.")] HRESULT PasswordHashIterations([in] long newVal);
+
+   [propget, id(112), helpstring("Re-hash account passwords during logon when they use an older algorithm or a lower cost.")] HRESULT PasswordHashAutoUpgradeEnabled([out, retval] VARIANT_BOOL *pVal);
+   [propput, id(112), helpstring("Re-hash account passwords during logon when they use an older algorithm or a lower cost.")] HRESULT PasswordHashAutoUpgradeEnabled([in] VARIANT_BOOL newVal);
+
 };
 
 
@@ -792,6 +815,7 @@ interface IInterfaceDomain : IDispatch
 	   [propput, id(37), helpstring("Gets or sets the header canonicalization method.")] HRESULT DKIMHeaderCanonicalizationMethod([in] eDKIMCanonicalizationMethod newVal);
 	   [propget, id(38), helpstring("Gets or sets the body canonicalization method.")] HRESULT DKIMBodyCanonicalizationMethod([out, retval] eDKIMCanonicalizationMethod *pVal);
 	   [propput, id(38), helpstring("Gets or sets the body canonicalization method.")] HRESULT DKIMBodyCanonicalizationMethod([in] eDKIMCanonicalizationMethod newVal);
+
 	   [propget, id(39), helpstring("Gets or sets the signing algorithm.")] HRESULT DKIMSigningAlgorithm([out, retval] eDKIMAlgorithm *pVal);
 	   [propput, id(39), helpstring("Gets or sets the signing algorithm.")] HRESULT DKIMSigningAlgorithm([in] eDKIMAlgorithm newVal);
 
@@ -968,7 +992,7 @@ interface IInterfaceMessage : IDispatch
    [propget, id(21), helpstring("Message flags")] HRESULT Flag([in] eMessageFlag iType, [out, retval] VARIANT_BOOL *pVal);
    [propput, id(21), helpstring("Message flags")] HRESULT Flag([in] eMessageFlag iType, [in] VARIANT_BOOL pVal);
    [propget, id(22), helpstring("The internal date and time of this message.")] HRESULT InternalDate([out, retval] VARIANT *pVal);
-   [propget, id(23), helpstring("Collection of message heades.")] HRESULT Headers([out, retval] IInterfaceMessageHeaders ** pVal);
+   [propget, id(23), helpstring("Collection of message headers.")] HRESULT Headers([out, retval] IInterfaceMessageHeaders ** pVal);
    [id(24), helpstring("Refreshes the message content")] HRESULT RefreshContent();
    [propget, id(25), helpstring("The number of this delivery attempt.")] HRESULT DeliveryAttempt([out, retval] long *pVal);
 	[propget, id(26), helpstring("The main character set of the email.")] HRESULT Charset([out, retval] BSTR *pVal);
@@ -1190,10 +1214,10 @@ interface IInterfaceDistributionList : IDispatch
    [propget, id(6), helpstring("The recipients in the distribution list.")] HRESULT Recipients([out, retval] IInterfaceDistributionListRecipients **pVal);
    [propget, id(7), helpstring("The address of the distribution list.")] HRESULT Address([out, retval] BSTR  * pVal);
    [propput, id(7), helpstring("The address of the distribution list.")] HRESULT Address([in] BSTR newVal);
-   [propget, id(8), helpstring("Sets wether the list requires a user to SMTP Authenticate before sending mail to it.")] HRESULT RequireSMTPAuth([out, retval] VARIANT_BOOL* pVal);
-   [propput, id(8), helpstring("Sets wether the list requires a user to SMTP Authenticate before sending mail to it.")] HRESULT RequireSMTPAuth([in] VARIANT_BOOL newVal);
-   [propget, id(9), helpstring("Require the user to send from the adress.")] HRESULT RequireSenderAddress([out, retval] BSTR  * pVal);
-   [propput, id(9), helpstring("Require the user to send from the adress.")] HRESULT RequireSenderAddress([in] BSTR newVal);
+   [propget, id(8), helpstring("Sets whether the list requires a user to SMTP Authenticate before sending mail to it.")] HRESULT RequireSMTPAuth([out, retval] VARIANT_BOOL* pVal);
+   [propput, id(8), helpstring("Sets whether the list requires a user to SMTP Authenticate before sending mail to it.")] HRESULT RequireSMTPAuth([in] VARIANT_BOOL newVal);
+   [propget, id(9), helpstring("Require the user to send from the address.")] HRESULT RequireSenderAddress([out, retval] BSTR  * pVal);
+   [propput, id(9), helpstring("Require the user to send from the address.")] HRESULT RequireSenderAddress([in] BSTR newVal);
    [propget, id(10), helpstring("Distribution list mode.")] HRESULT Mode([out, retval] eDistributionListMode *pVal);
    [propput, id(10), helpstring("Distribution list mode.")] HRESULT Mode([in] eDistributionListMode newVal);
 
@@ -1281,8 +1305,8 @@ interface IInterfaceSecurityRange : IDispatch{
 
 		[propget, id(19), helpstring("Enable spam protection for this IP range.")] HRESULT EnableSpamProtection([out, retval] VARIANT_BOOL *pVal);
 		[propput, id(19), helpstring("Enable spam protection for this IP range")] HRESULT EnableSpamProtection([in] VARIANT_BOOL newVal);
-      [propget, id(20), helpstring("Obsolete: Used IncomingRelays colleciton instead.")] HRESULT IsForwardingRelay([out, retval] VARIANT_BOOL *pVal);
-      [propput, id(20), helpstring("Obsolete: Used IncomingRelays colleciton instead.")] HRESULT IsForwardingRelay([in] VARIANT_BOOL newVal);
+      [propget, id(20), helpstring("Obsolete: Used IncomingRelays collection instead.")] HRESULT IsForwardingRelay([out, retval] VARIANT_BOOL *pVal);
+      [propput, id(20), helpstring("Obsolete: Used IncomingRelays collection instead.")] HRESULT IsForwardingRelay([in] VARIANT_BOOL newVal);
 		[propget, id(21), helpstring("Enable virus protection for this IP range.")] HRESULT EnableAntiVirus([out, retval] VARIANT_BOOL *pVal);
 		[propput, id(21), helpstring("Enable virus protection for this IP range")] HRESULT EnableAntiVirus([in] VARIANT_BOOL newVal);
 
@@ -1499,7 +1523,7 @@ interface IInterfaceApplication : IDispatch{
    [id(11), helpstring("Opens a connection to the hMailServer database.")] HRESULT Connect();
    [propget, id(12), helpstring("The initialization file currently in use.")] HRESULT InitializationFile([out, retval] BSTR *pVal);
    [id(13), helpstring("Reloads all the server settinsg")] HRESULT Reinitialize();
-   [propget, id(14), helpstring("Gets a colleciton of global rules.")] HRESULT Rules([out, retval] IInterfaceRules** pVal);
+   [propget, id(14), helpstring("Gets a collection of global rules.")] HRESULT Rules([out, retval] IInterfaceRules** pVal);
    [propget, id(15), helpstring("Gets the backup manager.")] HRESULT BackupManager([out, retval] IInterfaceBackupManager **pVal);
    [propget, id(16), helpstring("Gets the global objects object.")] HRESULT GlobalObjects([out, retval] IInterfaceGlobalObjects **pVal);
    [id(17), helpstring("Authenticate the client.")] HRESULT Authenticate([in] BSTR Username, [in] BSTR Password, [out, retval] IInterfaceAccount** pAccount);
@@ -2146,7 +2170,7 @@ interface IInterfaceIMAPFolders : IDispatch{
 ]
 interface IInterfaceEventLog : IDispatch
 {
-   [id(1), helpstring("Writes a mesage to the hMailServer event log.")] HRESULT Write(BSTR sMessage);     
+   [id(1), helpstring("Writes a message to the hMailServer event log.")] HRESULT Write(BSTR sMessage);     
 };
 
 [
@@ -2279,6 +2303,14 @@ interface IInterfaceAntiSpam : IDispatch
    [propput, id(37), helpstring("Check rDNS/PTR record.")] HRESULT CheckPTR([in] VARIANT_BOOL newVal);
    [propget, id(38), helpstring("Check rDNS/PTR record (SpamScore).")] HRESULT CheckPTRScore([out, retval] long* pVal);
    [propput, id(38), helpstring("Check rDNS/PTR record (SpamScore).")] HRESULT CheckPTRScore([in] long newVal);
+   [propget, id(39), helpstring("Enable DMARC verification.")] HRESULT DMARCEnabled([out, retval] VARIANT_BOOL* pVal);
+   [propput, id(39), helpstring("Enable DMARC verification.")] HRESULT DMARCEnabled([in] VARIANT_BOOL newVal);
+   [propget, id(40), helpstring("DMARC verification failure score.")] HRESULT DMARCFailureScore([out, retval] long* pVal);
+   [propput, id(40), helpstring("DMARC verification failure score.")] HRESULT DMARCFailureScore([in] long newVal);
+   [propget, id(41), helpstring("Honor the DMARC policy published by the sender domain.")] HRESULT DMARCHonorPolicy([out, retval] VARIANT_BOOL* pVal);
+   [propput, id(41), helpstring("Honor the DMARC policy published by the sender domain.")] HRESULT DMARCHonorPolicy([in] VARIANT_BOOL newVal);
+   [propget, id(42), helpstring("Add an Authentication-Results header to accepted messages.")] HRESULT AddAuthenticationResultsHeader([out, retval] VARIANT_BOOL* pVal);
+   [propput, id(42), helpstring("Add an Authentication-Results header to accepted messages.")] HRESULT AddAuthenticationResultsHeader([in] VARIANT_BOOL newVal);
 };
 
 

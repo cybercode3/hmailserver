@@ -6,7 +6,7 @@ namespace RegressionTests.Shared
 {
    static class StringExtensions
    {
-      public static int Occurences(string haystack, string needle)
+      public static int Occurrences(string haystack, string needle)
       {
          int count = 0;
          int n = 0;

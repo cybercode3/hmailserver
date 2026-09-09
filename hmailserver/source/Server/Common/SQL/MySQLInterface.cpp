@@ -91,8 +91,8 @@ namespace HM
          sErrorMessage = Formatter::Format("Error:\r\n"
                "The MySQL client ({0}) could not be loaded.\r\n"
                "hMailServer needs this file to be able to connect to MySQL.\r\n"
-               "The client library needs to be manually copied to the hMailServer Bin directory. The file is not included in the hMailServer installation.\r\n"
-               "It can be obtained from https://mariadb.com/downloads/connectors/ (libmariadb.dll) or https://dev.mysql.com/downloads/connector/c/ (libmysql.dll).\r\n"
+               "This file is installed into the hMailServer Bin directory. If it has been removed, reinstall hMailServer to restore it.\r\n"
+               "A replacement can also be downloaded from https://mariadb.com/downloads/connectors/ (libmariadb.dll) or https://dev.mysql.com/downloads/connector/c/ (libmysql.dll).\r\n"
                "Path: {1}", versionArchitecture, sLibrary);
 
          ErrorManager::Instance()->ReportError(ErrorManager::Critical, 5094, "MySQLInterface::Load", sErrorMessage);

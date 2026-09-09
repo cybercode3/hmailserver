@@ -618,7 +618,7 @@ namespace HM
    }
 
    /// Returns the retry options for a list of address.
-   /// The maximum number of retries and the maximum number of mintues between
+   /// The maximum number of retries and the maximum number of minutes between
    /// every try.
    // Type changed to bool for use in ETRN's
    bool 

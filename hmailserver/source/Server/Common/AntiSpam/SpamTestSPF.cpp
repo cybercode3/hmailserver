@@ -6,6 +6,7 @@
 
 #include "SpamTestData.h"
 #include "SpamTestResult.h"
+#include "SenderAuthentication.h"
 
 #include "AntiSpamConfiguration.h"
 
@@ -48,13 +49,10 @@ namespace HM
       String sMessage = "";
       int iScore = 0;
 
-      const IPAddress &originatingAddress = pTestData->GetOriginatingIP();
+      std::shared_ptr<SenderAuthentication> senderAuthentication = pTestData->GetSenderAuthentication();
 
-      if (originatingAddress.IsAny())
-         return setSpamTestResults;
-
-      String sExplanation;
-      SPF::Result result = SPF::Instance()->Test(originatingAddress.ToString(), pTestData->GetEnvelopeFrom(), pTestData->GetHeloHost(), sExplanation);
+      SPF::Result result = senderAuthentication->EvaluateSPF(pTestData);
+      String sExplanation = senderAuthentication->GetSPFExplanation();
       
       if (result == SPF::Fail)
       {

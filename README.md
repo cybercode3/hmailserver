@@ -15,7 +15,8 @@ Environment set up
 
    * An installed version of hMailServer 5.7 (configured with a database)
    * Visual Studio 2019 Community edition
-   * InnoSetup 5.5.4a (non-unicode version)
+   * InnoSetup 6.2.2 (https://github.com/jrsoftware/issrc/releases/tag/is-6_2_2) - the last
+     release whose installers run on Windows Vista, which hMailServer still supports
    * [Perl ActiveState ActivePerl Community Edition 32 bit works fine](https://www.activestate.com/activeperl/downloads)
    
 **NOTE**
@@ -81,6 +82,30 @@ The script auto-detects the OpenSSL version to link against from the hMailServer
 `-OpenSSLVersion 3.5.8` to override it. Only PostgreSQL 15.x and 16.x are supported (17 removed
 the `src\tools\msvc\build.pl` build system this relies on).
 
+Building MariaDB Connector/C
+----------------------------
+hMailServer talks to MySQL and MariaDB through MariaDB Connector/C, and ships its
+`libmariadb.dll` in the Bin directory. It is built by the `libraries\build-mariadb.ps1` script,
+which downloads the requested version into %hMailServerLibs%\libmariadb-&lt;Version&gt;, configures it
+with CMake against a previously built OpenSSL, and builds
+`libmariadb.dll` into `libmariadb-&lt;Version&gt;\build64\libmariadb\RelWithDebInfo`. The authentication
+plugins are compiled into the DLL, so no plugin files have to be shipped alongside it.
+
+Prerequisites:
+- The environment variable hMailServerLibs (see above).
+- A matching OpenSSL build (`openssl-&lt;Version&gt;\out64`) already present - build it first with the OpenSSL script above.
+- CMake - either on PATH, or Visual Studio's "C++ CMake tools for Windows" component. MariaDB Connector/C has no other build system.
+- Visual Studio 2019 with the x64 C++ build tools.
+
+Run, from the repository root:
+
+   <pre>
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-mariadb.ps1 -Version 3.4.9
+   </pre>
+
+The script auto-detects the OpenSSL version to link against from the hMailServer project; pass
+`-OpenSSLVersion 3.5.x` to override it. Only MariaDB Connector/C 3.4.x is supported.
+
 Building Boost
 --------------
 hMailServer currently uses Boost 1.92.0. The helper script downloads a clean source tree and builds the static, multithreaded x64 libraries used by hMailServer.
@@ -97,6 +122,31 @@ Run from the repository root:
 
 Pass `-Toolset <name>` to override `msvc-14.2`, or `-Jobs <n>` to change the number of parallel compilations.
 
+Fetching 7-Zip
+--------------
+The backup and restore feature launches the 7-Zip command line tool to compress and read
+backup archives. It is a prebuilt binary rather than something hMailServer compiles, so the
+`libraries\build-7zip.ps1` script downloads the "7-Zip Extra" package into
+%hMailServerLibs%\7zip-&lt;Version&gt; (e.g. `7zip-26.03`) and keeps the x64 `7za.exe` and its
+LGPL license text.
+
+Prerequisites:
+- The environment variable hMailServerLibs (see above).
+
+Run, from the repository root:
+
+   <pre>
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-7zip.ps1 -Version 26.03
+   </pre>
+
+The package is a .7z, so the script also downloads `7zr.exe` from the same release and uses
+it to unpack the archive.
+
+Both downloads are checked against SHA-256 values pinned in the script, so only versions
+listed there are accepted. To move to a newer 7-Zip, record its hashes in `$ArchiveHashes`
+and `$BootstrapHashes` and update the `7zip-&lt;Version&gt;` folder name in `post-build.bat` and
+`hMailServer64.iss`.
+
 Building hMailServer
 --------------------
 
@@ -107,7 +157,7 @@ Visual Studio 2019 must be started with _Run as Administrator_.
    This will build the hMailServer server-part (hMailServer.exe)
 3. Compile the solution hmailserver\source\Tools\hMailServer Tools.sln.
    This will build hMailServer related tools, such as hMailServer Administrator and hMailServer DB Setup.
-4. Compile hmailserver\installation\hMailServer.iss (using InnoSetup)
+4. Compile hmailserver\installation\hMailServer64.iss (using InnoSetup)
    This will build the hMailServer installation program.
 
 Running in Debug

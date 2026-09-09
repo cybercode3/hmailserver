@@ -69,15 +69,17 @@ namespace HM
       if (pFolder->GetID() <= 0)
          return false;
 
+      // Snapshot, rather than indexing the collection: another connection may remove a
+      // folder between the count and the lookup, which would give us an empty pointer.
       std::shared_ptr<IMAPFolders> pSubFolders = pFolder->GetSubFolders();
-      for (int i = 0; i < pSubFolders->GetCount(); i++)
+      for (std::shared_ptr<IMAPFolder> pSubFolder : pSubFolders->GetSnapshot())
       {
-         if (!DeleteObject(pSubFolders->GetItem(i), forceDelete))
+         if (!DeleteObject(pSubFolder, forceDelete))
             return false;
       }
 
       pFolder->GetMessages()->Refresh(false);
-      std::function<bool(int, std::shared_ptr<Message>)> filter = [](int index, std::shared_ptr<Message> message) { return true; };
+      std::function<bool(std::shared_ptr<Message>)> filter = [](std::shared_ptr<Message> message) { return true; };
       auto messages = MessagesContainer::Instance()->GetMessages(pFolder->GetAccountID(), pFolder->GetID());
       messages->DeleteMessages(filter);
 

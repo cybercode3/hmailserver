@@ -60,8 +60,8 @@ namespace RegressionTests.Infrastructure
          TriggerCrashSimulationError();
 
          AssertMinidumpsGeneratedAndErrorsLogged(1, true,
-            "Description: An error occured while parsing data.",
-            "An error occured while executing 'IOCPQueueWorkerTask'",
+            "Description: An error occurred while parsing data.",
+            "An error occurred while executing 'IOCPQueueWorkerTask'",
             "An error has been detected. A mini dump has been written");
       }
 

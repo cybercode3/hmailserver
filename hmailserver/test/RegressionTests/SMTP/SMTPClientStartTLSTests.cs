@@ -76,7 +76,7 @@ namespace RegressionTests.SMTP
 
             Assert.That(server.MessageData, Is.Not.Null.Or.Empty);
 
-            Assert.IsFalse(LogHandler.DefaultLogContains("220 Ready to start TLS"));
+            Assert.IsTrue(LogHandler.DefaultLogDoesNotContain("220 Ready to start TLS"));
          }
       }
 
@@ -107,7 +107,7 @@ namespace RegressionTests.SMTP
 
             Assert.That(server.MessageData, Is.Not.Null.Or.Empty);
 
-            Assert.IsFalse(LogHandler.DefaultLogContains("220 Ready to start TLS"));
+            Assert.IsTrue(LogHandler.DefaultLogDoesNotContain("220 Ready to start TLS"));
          }
       }
 
@@ -137,7 +137,7 @@ namespace RegressionTests.SMTP
 
             Assert.That(server.MessageData, Is.Not.Null.Or.Empty);
 
-            Assert.IsFalse(LogHandler.DefaultLogContains("220 Ready to start TLS"));
+            Assert.IsTrue(LogHandler.DefaultLogDoesNotContain("220 Ready to start TLS"));
          }
       }
 
@@ -160,7 +160,7 @@ namespace RegressionTests.SMTP
             server.AddRecipientResult(deliveryResults);
             server.StartListen();
 
-            // Add a route so we can conenct to localhost.
+            // Add a route so we can connect to localhost.
             TestSetup.AddRoutePointingAtLocalhost(1, smtpServerPort, false, eConnectionSecurity.eCSSTARTTLSOptional);
 
             // Send message to this route.
@@ -193,7 +193,7 @@ namespace RegressionTests.SMTP
             server.AddRecipientResult(deliveryResults);
             server.StartListen();
 
-            // Add a route so we can conenct to localhost.
+            // Add a route so we can connect to localhost.
             TestSetup.AddRoutePointingAtLocalhost(1, smtpServerPort, false, eConnectionSecurity.eCSSTARTTLSRequired);
 
             // Send message to this route.

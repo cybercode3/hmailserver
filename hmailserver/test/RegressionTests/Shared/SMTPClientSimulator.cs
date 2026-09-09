@@ -212,6 +212,10 @@ namespace RegressionTests.Shared
             SendAndReceive("STARTTLS\r\n");
 
             _tcpConnection.HandshakeAsClient();
+
+            // RFC 3207: the handshake resets the session to the initial state, so the
+            // server expects a new greeting before it accepts any other command.
+            SendAndReceive("EHLO example.com\r\n");
          }
 
          if (!string.IsNullOrEmpty(username))
@@ -229,7 +233,7 @@ namespace RegressionTests.Shared
          _tcpConnection.Send("MAIL FROM:<" + sFrom + ">\r\n");
          var mailFromResponse = _tcpConnection.Receive();
          if (mailFromResponse != "250 OK\r\n")
-            throw new DeliveryFailedException("Unexpected response to HELO from server: " + helloResponse);
+            throw new DeliveryFailedException("Unexpected response to FROM from server: " + mailFromResponse);
 
          _tcpConnection.Send("RCPT TO:<" + sTo + ">\r\n");
          var rcptToResponse = _tcpConnection.Receive();

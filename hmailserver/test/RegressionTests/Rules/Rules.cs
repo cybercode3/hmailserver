@@ -531,7 +531,7 @@ namespace RegressionTests.Rules
          // add an account to send from
          Account account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "test@test.com", "test");
 
-         // Add a route so we can conenct to localhost.
+         // Add a route so we can connect to localhost.
          Route route = TestSetup.AddRoutePointingAtLocalhost(5, smtpServerPort, false);
 
          // Add a global send-using-route rule
@@ -1580,7 +1580,14 @@ namespace RegressionTests.Rules
          var smtpClientSimulator = new SmtpClientSimulator();
 
          // Test to send the message to account 2.
-         smtpClientSimulator.Send(account1.Address, account2.Address, "Test", "Test message.");
+         const string messageID = "<rule-threading@example.test>";
+         const string previousReference = "<previous-rule-message@example.test>";
+         smtpClientSimulator.SendRaw(account1.Address, account2.Address,
+            "Message-ID: " + messageID + "\r\n" +
+            "References: " + previousReference + "\r\n" +
+            "Subject: Test\r\n" +
+            "\r\n" +
+            "Test message.");
          ImapClientSimulator.AssertMessageCount(account2.Address, "test", "Inbox", 1);
 
          // Make sure a reply is sent back to account 1.
@@ -1589,6 +1596,55 @@ namespace RegressionTests.Rules
 
          Assert.AreEqual(string.Empty, message.FromAddress);
          Assert.AreEqual("auto-replied", message.get_HeaderValue("Auto-Submitted"));
+         Assert.AreEqual(messageID, message.get_HeaderValue("In-Reply-To"));
+         Assert.AreEqual(previousReference + " " + messageID, message.get_HeaderValue("References"));
+      }
+
+      [Test]
+      [Description("A control character in the original Message-ID must not inject headers into the reply.")]
+      public void ReplyMustNotAllowHeaderInjectionInThreadingHeaders()
+      {
+         // Add accounts
+         Account account1 = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "ruletest1@test.com", "test");
+         Account account2 = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "ruletest2@test.com", "test");
+
+         // Set up a rule to reply to any message sent to account2.
+         Rule rule = account2.Rules.Add();
+         rule.Name = "Criteria test";
+         rule.Active = true;
+
+         RuleCriteria ruleCriteria = rule.Criterias.Add();
+         ruleCriteria.UsePredefined = true;
+         ruleCriteria.PredefinedField = eRulePredefinedField.eFTMessageSize;
+         ruleCriteria.MatchType = eRuleMatchType.eMTGreaterThan;
+         ruleCriteria.MatchValue = "0";
+         ruleCriteria.Save();
+
+         RuleAction ruleAction = rule.Actions.Add();
+         ruleAction.Type = eRuleActionType.eRAReply;
+         ruleAction.FromAddress = account2.Address;
+         ruleAction.FromName = "Rule Test 2";
+         ruleAction.Subject = "Autoreply";
+         ruleAction.Save();
+
+         rule.Save();
+
+         // The encoded words decode to a line feed followed by a header of the sender's choosing.
+         SmtpClientSimulator smtpClientSimulator = new SmtpClientSimulator();
+         smtpClientSimulator.SendRaw(account1.Address, account2.Address,
+            "Message-ID: =?utf-8?Q?=3Cinjected=40example=2Etest=3E=0AX-Injected-Id=3A_yes?=\r\n" +
+            "References: =?utf-8?Q?=3Cprevious=40example=2Etest=3E=0AX-Injected-Ref=3A_yes?=\r\n" +
+            "Subject: Test\r\n" +
+            "\r\n" +
+            "Test message.");
+         ImapClientSimulator.AssertMessageCount(account2.Address, "test", "Inbox", 1);
+
+         CustomAsserts.AssertRecipientsInDeliveryQueue(0);
+
+         string reply = Pop3ClientSimulator.AssertGetFirstMessageText(account1.Address, "test");
+
+         Assert.IsFalse(reply.Contains("\nX-Injected-Id"), reply);
+         Assert.IsFalse(reply.Contains("\nX-Injected-Ref"), reply);
       }
 
       [Test]

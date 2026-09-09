@@ -92,7 +92,7 @@ namespace HM
             pRS->MoveNext();
          }
 
-         // Sort theese folders into sub-folders.
+         // Sort these folders into sub-folders.
          long lPanicLevel = 0;
          while (vecIMAPFolders.size() > 0)
          {

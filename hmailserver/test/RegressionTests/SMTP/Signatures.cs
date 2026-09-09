@@ -207,7 +207,7 @@ namespace RegressionTests.SMTP
          Account account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "list@test.com", "test");
 
          var smtpClientSimulator = new SmtpClientSimulator();
-         smtpClientSimulator.Send("nonexistant@dummy-example.com", account.Address, "SignatureTest", "SignaturerTestBody");
+         smtpClientSimulator.Send("nonexistent@dummy-example.com", account.Address, "SignatureTest", "SignaturerTestBody");
 
          string messageData = Pop3ClientSimulator.AssertGetFirstMessageText(account.Address, "test");
 
@@ -229,7 +229,7 @@ namespace RegressionTests.SMTP
          Account account = SingletonProvider<TestSetup>.Instance.AddAccount(_domain, "list@test.com", "test");
 
          var smtpClientSimulator = new SmtpClientSimulator();
-         smtpClientSimulator.Send("nonexistant@" + _domain.Name, account.Address, "SignatureTest", "SignaturerTestBody");
+         smtpClientSimulator.Send("nonexistent@" + _domain.Name, account.Address, "SignatureTest", "SignaturerTestBody");
 
          string messageData = Pop3ClientSimulator.AssertGetFirstMessageText(account.Address, "test");
 
@@ -252,7 +252,7 @@ namespace RegressionTests.SMTP
          account.PersonFirstName = "Martin";
 
          var smtpClientSimulator = new SmtpClientSimulator();
-         smtpClientSimulator.Send("nonexistant@" + _domain.Name, account.Address, "SignatureTest", "SignaturerTestBody");
+         smtpClientSimulator.Send("nonexistent@" + _domain.Name, account.Address, "SignatureTest", "SignaturerTestBody");
 
          string messageData = Pop3ClientSimulator.AssertGetFirstMessageText(account.Address, "test");
 
@@ -265,7 +265,7 @@ namespace RegressionTests.SMTP
          var message = SendMessageWithSignature("PlainTextSignature", "HtmlSignature",
             TestResources.EmailWith_TextPlainBody_TextHtmlBody_TextPlainAttachment);
 
-         var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+         var tempFile = Path.Combine(TestSetup.GetSharedTempDirectory(), Guid.NewGuid().ToString());
          message.Attachments[1].SaveAs(tempFile);
 
          Assert.IsTrue(message.Body.Contains("PlainTextBody\r\n\r\nPlainTextSignature"), message.Body);
@@ -288,7 +288,7 @@ namespace RegressionTests.SMTP
          var message = SendMessageWithSignature("PlainTextSignature", "HtmlSignature",
             TestResources.EmailWith_TextPlainBody_TextHtmlBody_TextHtmlAttachment);
 
-         var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+         var tempFile = Path.Combine(TestSetup.GetSharedTempDirectory(), Guid.NewGuid().ToString());
          message.Attachments[1].SaveAs(tempFile);
 
          Assert.IsTrue(message.Body.Contains("PlainTextBody\r\n\r\nPlainTextSignature"), message.Body);

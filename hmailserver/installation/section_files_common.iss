@@ -3,9 +3,10 @@ Source: isxdl.dll; DestDir: {tmp}; Flags: dontcopy
 Source: "License.rtf"; DestDir: "{app}\Bin"; Flags: ignoreversion; Components: server admintools;
 
 ; 3'rd party dependencies
-Source: "System files\dnsapi.dll"; DestDir: "{sys}"; Flags: uninsneveruninstall onlyifdoesntexist; Components: admintools; OnlyBelowVersion: 0,6;
-Source: "System files\ATL\atl70.dll"; DestDir: "{sys}";  Components: server;
-Source: ".\Extras\7za.exe"; DestDir: "{app}\Bin"; Flags: ignoreversion; Components: server;
+; 7-Zip is fetched by libraries\build-7zip.ps1 rather than kept in the repository. It is
+; LGPL, so its license text is installed beside the executable.
+Source: "{#SEVENZIP_PATH}\7za.exe"; DestDir: "{app}\Bin"; Flags: ignoreversion; Components: server;
+Source: "{#SEVENZIP_PATH}\License.txt"; DestDir: "{app}\Bin"; DestName: "7za.exe.license.txt"; Flags: ignoreversion; Components: server;
 
 ; Database scripts
 Source: "..\source\DBScripts\*.sql"; DestDir: "{app}\DBScripts";Flags: ignoreversion recursesubdirs; Components: server;
@@ -17,5 +18,5 @@ Source: "..\source\WebAdmin\*.*"; DestDir: "{app}\PHPWebAdmin"; Flags: recursesu
 Source: "..\source\Translations\*"; Excludes: "CVS,.cvsignore,.#*"; DestDir: "{app}\Languages"; Components: server admintools;
 
 Source: ISC.dll; Flags: dontcopy
-Source: ".\Extras\tlds.txt"; DestDir: "{app}\Bin";  Flags: ignoreversion; Components: server;
+Source: ".\Extras\public_suffix_list.dat"; DestDir: "{app}\Bin";  Flags: ignoreversion; Components: server;
 Source: ".\Extras\dh2048.pem"; DestDir: "{app}\Bin";  Flags: ignoreversion; Components: server;

@@ -33,6 +33,18 @@ namespace DBUpdater
          _databaseType = null;
       }
 
+      /// <summary>
+      /// Shows an error, unless we're running unattended. In that case there may be
+      /// no desktop to show it on, so the failure is reported using the exit code instead.
+      /// </summary>
+      private static void ShowError(string text, string caption)
+      {
+         if (CommandLineParser.IsSilent())
+            return;
+
+         MessageBox.Show(text, caption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+      }
+
       public bool CreateUpgradePath()
       {
          _upgradePath = new UpgradeScripts();
@@ -48,7 +60,7 @@ namespace DBUpdater
 
             if (script == null)
             {
-               MessageBox.Show("Upgrade path not found.", "hMailServer");
+               ShowError("Upgrade path not found.", "hMailServer");
                return false;
             }
 
@@ -56,7 +68,7 @@ namespace DBUpdater
 
             if (!File.Exists(fileName))
             {
-               MessageBox.Show("Required file for upgrade not found:" + Environment.NewLine + fileName, "hMailServer");
+               ShowError("Required file for upgrade not found:" + Environment.NewLine + fileName, "hMailServer");
                return false;
             }
 
@@ -89,7 +101,7 @@ namespace DBUpdater
                _databaseType = DatabaseTypePGSQL;
                break;
             default:
-               MessageBox.Show("Unknown database type");
+               ShowError("Unknown database type", "hMailServer");
                return false;
          }
 
@@ -98,7 +110,7 @@ namespace DBUpdater
          _scriptPath = _application.Settings.Directories.DBScriptDirectory;
          if (_scriptPath == null || _scriptPath.Length == 0)
          {
-            MessageBox.Show("Database script directory could not be found." + Environment.NewLine + "Please check the hMailServer error log.", "hMailServer");
+            ShowError("Database script directory could not be found." + Environment.NewLine + "Please check the hMailServer error log.", "hMailServer");
             return false;
          }
 
@@ -169,6 +181,8 @@ namespace DBUpdater
          _upgradeScripts.Add(new UpgradeScript(5704, 5705));
          _upgradeScripts.Add(new UpgradeScript(5705, 5708));
          _upgradeScripts.Add(new UpgradeScript(5708, 5709));
+         _upgradeScripts.Add(new UpgradeScript(5709, 5710));
+         _upgradeScripts.Add(new UpgradeScript(5710, 5711));
       }
 
       private void buttonClose_Click(object sender, EventArgs e)
@@ -286,6 +300,10 @@ namespace DBUpdater
                return "hMailServer 5.7 (5708)";
             case 5709:
                return "hMailServer 5.7 (5709)";
+            case 5710:
+               return "hMailServer 5.7 (5710)";
+            case 5711:
+               return "hMailServer 5.7 (5711)";
             default:
                return "Unknown version";
          }
@@ -300,7 +318,7 @@ namespace DBUpdater
       }
 
 
-      public void DoUpgrade()
+      public bool DoUpgrade()
       {
          using (new WaitCursor())
          {
@@ -316,7 +334,7 @@ namespace DBUpdater
             catch (Exception e)
             {
                HandleUpgradeError(database, e, "Transaction");
-               return;
+               return false;
             }
 
             // Run the prerequisites script.
@@ -332,7 +350,7 @@ namespace DBUpdater
                catch (Exception ex)
                {
                   HandleUpgradeError(database, ex, fullScriptPath);
-                  return;
+                  return false;
                }
 
             }
@@ -360,7 +378,7 @@ namespace DBUpdater
                   item.SubItems.Add("Error");
 
                   HandleUpgradeError(database, e, scriptToExecute);
-                  return;
+                  return false;
                }
 
             }
@@ -372,7 +390,7 @@ namespace DBUpdater
             catch (Exception e)
             {
                HandleUpgradeError(database, e, "Transaction");
-               return;
+               return false;
             }
 
             Marshal.ReleaseComObject(database);
@@ -385,6 +403,7 @@ namespace DBUpdater
             buttonClose.Enabled = true;
          }
 
+         return true;
       }
 
       private void HandleUpgradeError(hMailServer.Database database, Exception error, string scriptToExecute)
@@ -404,7 +423,7 @@ namespace DBUpdater
          }
          finally
          {
-            MessageBox.Show(error.Message, scriptToExecute);
+            ShowError(error.Message, scriptToExecute);
          }
         
          buttonClose.Enabled = true;

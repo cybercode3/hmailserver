@@ -1,8 +1,9 @@
-// Copyright (c) 2010 Martin Knafve / hMailServer.com.  
+// Copyright (c) 2010 Martin Knafve / hMailServer.com.
 // http://www.hmailserver.com
 
 #include "stdafx.h"
 #include "DNSResolverWinApi.h"
+#include "../Util/Assert.h"
 #include <iphlpapi.h>
 #include <windns.h>
 #include <boost/asio.hpp>
@@ -27,11 +28,11 @@ namespace HM
    {
 
    }
- 
-   void 
+
+   void
    _FreeDNSRecord(PDNS_RECORD pRecord)
    {
-      if (!pRecord) 
+      if (!pRecord)
          return;
 
       DNS_FREE_TYPE freetype = DnsFreeRecordListDeep;
@@ -61,27 +62,30 @@ namespace HM
    }
 
    bool
-   DNSResolverWinApi::Query(const String &query, int resourceType, std::vector<DNSRecord> &foundRecords)
+   DNSResolverWinApi::Query(const String &query, int resourceType, std::vector<DNSRecord> &foundRecords, bool bypassCache)
    {
       PDNS_RECORD pDnsRecord = NULL;
-      
+
       PIP4_ARRAY pSrvList = NULL;
 
       DWORD fOptions;
       fOptions = DNS_QUERY_STANDARD;
 
-      if (!IniFileSettings::Instance()->GetUseDNSCache())
+      if (bypassCache || !IniFileSettings::Instance()->GetUseDNSCache())
       {
-         fOptions += DNS_QUERY_BYPASS_CACHE;
+         fOptions |= DNS_QUERY_BYPASS_CACHE;
       }
 
+      // Use a Custom DNS server IPv4 address if specified in the settings.
+      // If the address is invalid, we will fallback to the system DNS servers.
       AnsiString sCustomDNS;
       sCustomDNS = IniFileSettings::Instance()->GetDNSServer().Trim();
       if (!sCustomDNS.IsEmpty())
       {
+         // Allocate and zero-initialize for safety.
          pSrvList = (PIP4_ARRAY)malloc(sizeof(IP4_ARRAY));
-         if (!pSrvList) {
-
+         if (!pSrvList)
+         {
             String sMessage;
             sMessage.Format(_T("Unable to allocate memory for DNS server list. Query: %s, Type: %d."), query, resourceType);
             ErrorManager::Instance()->ReportError(ErrorManager::Low, 4401, "DNSResolver::_Resolve", sMessage);
@@ -89,27 +93,31 @@ namespace HM
             return false;
          }
 
-         // Custom DNSServer IPv4 address
+         // Parse IPv4 address
          pSrvList->AddrCount = 1;
-         pSrvList->AddrArray[0] = inet_addr(sCustomDNS.c_str()); //Custom DNS server IP address
-         if (pSrvList->AddrArray[0] == INADDR_NONE) {
-
+         pSrvList->AddrArray[0] = inet_addr(sCustomDNS.c_str());
+         if (pSrvList->AddrArray[0] == INADDR_NONE)
+         {
             String sMessage;
             sMessage.Format(_T("Invalid DNSServer IP address. DNSServer IP: %hs."), sCustomDNS.c_str());
             ErrorManager::Instance()->ReportError(ErrorManager::Low, 4401, "DNSResolver::_Resolve", sMessage);
 
-            // fallback to the system dns servers
+            // free and fallback to the system dns servers
+            free(pSrvList);
             pSrvList = NULL;
          }
          else
          {
-            // We need this if not using system dns servers
-            if (fOptions != DNS_QUERY_BYPASS_CACHE)
-               fOptions += DNS_QUERY_BYPASS_CACHE;
+            // If using a custom server, bypass local cache to ensure we query the specified server.
+            fOptions |= DNS_QUERY_BYPASS_CACHE;
          }
       }
 
       DNS_STATUS nDnsStatus = DnsQuery(query, resourceType, fOptions, pSrvList, &pDnsRecord, NULL);
+
+      // DnsQuery only reads the server list, so it can be released immediately.
+      free(pSrvList);
+      pSrvList = NULL;
 
       PDNS_RECORD pDnsRecordsToDelete = pDnsRecord;
 
@@ -135,8 +143,8 @@ namespace HM
       {
          String name = pDnsRecord->pName;
 
-         if (pDnsRecord->wType == resourceType && 
-             query.Equals(name))
+         if (pDnsRecord->wType == resourceType &&
+             NameMatchesQuery(query, name))
          {
             switch (pDnsRecord->wType)
             {
@@ -226,17 +234,47 @@ namespace HM
 
          pDnsRecord = pDnsRecord->pNext;
       }
-      
-      _FreeDNSRecord(pDnsRecordsToDelete);
-      pDnsRecordsToDelete = 0;
 
-      if (pSrvList != NULL)
-         free(pSrvList);
+      _FreeDNSRecord(pDnsRecordsToDelete);
 
       std::sort(foundRecords.begin(), foundRecords.end(), SortDnsRecordsByPreference);
 
 
       return true;
    }
+
+   //---------------------------------------------------------------------------()
+   // DESCRIPTION:
+   // Compares a record name with the queried name. A trailing dot is the root label,
+   // so example.com. and example.com are the same name (RFC 1035, 5.1) and it is ignored.
+   // Windows Server 2025 returns PTR names in that form.
+   //---------------------------------------------------------------------------()
+   bool
+   DNSResolverWinApi::NameMatchesQuery(const String &query, const String &recordName)
+   {
+      String name = recordName;
+
+      if (!name.empty() && name.back() == '.')
+         name.pop_back();
+
+      return query.Equals(name);
+   }
+
+   void
+   DNSResolverWinApiTester::Test()
+   {
+      Assert::IsTrue(DNSResolverWinApi::NameMatchesQuery(_T("example.com"), _T("example.com")));
+      Assert::IsFalse(DNSResolverWinApi::NameMatchesQuery(_T("example.com"), _T("other.com")));
+      Assert::IsTrue(DNSResolverWinApi::NameMatchesQuery(_T("1.0.0.127.in-addr.arpa"), _T("1.0.0.127.in-addr.arpa.")));
+      Assert::IsTrue(DNSResolverWinApi::NameMatchesQuery(
+         _T("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"),
+         _T("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.")));
+      Assert::IsTrue(DNSResolverWinApi::NameMatchesQuery(_T("example.com"), _T("example.com.")));
+      Assert::IsFalse(DNSResolverWinApi::NameMatchesQuery(_T("example.com"), _T("evil-example.com.")));
+      Assert::IsFalse(DNSResolverWinApi::NameMatchesQuery(_T("1.0.0.127.in-addr.arpa"), _T("1.0.0.127.in-addr.arpa.evil.com")));
+      Assert::IsFalse(DNSResolverWinApi::NameMatchesQuery(_T("example.com"), _T("")));
+      Assert::IsTrue(DNSResolverWinApi::NameMatchesQuery(_T(""), _T("")));
+   }
+
 }
 

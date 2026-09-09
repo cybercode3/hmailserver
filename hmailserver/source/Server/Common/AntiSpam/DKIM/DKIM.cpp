@@ -234,34 +234,37 @@ namespace HM
    DKIM::Result
    DKIM::Verify(const String &fileName)
    {
-      if (FileUtilities::FileSize(fileName) > MaxFileSize)
-         return Neutral;
-      
+      std::vector<std::pair<AnsiString, Result> > signatureResults;
+      return Verify(fileName, signatureResults);
+   }
+
+   DKIM::Result
+   DKIM::Verify(const String &fileName, std::vector<std::pair<AnsiString, Result> > &signatureResults)
+   {
+      signatureResults.clear();
+      if (FileUtilities::FileSize(fileName) > MaxFileSize) return Neutral;
       AnsiString messageHeader = PersistentMessage::LoadHeader(fileName);
-      MimeHeader mimeHeader;
-      mimeHeader.Load(messageHeader.GetBuffer(), messageHeader.GetLength(), false);
-
+      MimeHeader mimeHeader; mimeHeader.Load(messageHeader.GetBuffer(), messageHeader.GetLength(), false);
       std::vector<std::pair<AnsiString, AnsiString> > signatureFields = GetSignatureFields(mimeHeader);
-
-      if (signatureFields.size() == 0)
-      {
-         // No signatures in message.
-         return Neutral;
-      }
-
-      Result result = Neutral;
-
+      if (signatureFields.size() == 0) return Neutral;
+      Result result = Neutral; bool anySignaturePassed = false;
       typedef std::pair<AnsiString, AnsiString> HeaderField;
       for (HeaderField signatureField : signatureFields)
       {
-         result = VerifySignature_(fileName, messageHeader, signatureField);
-         if (result == Pass)
-            return Pass;
-      };
+         if (signatureResults.size() >= MaxSignatureCount) { LOG_DEBUG("DKIM: Stopped verifying signatures since the maximum number of signatures has been reached."); break; }
+         Result signatureResult = VerifySignature_(fileName, messageHeader, signatureField);
+         signatureResults.push_back(std::make_pair(GetSignatureDomain_(signatureField.second), signatureResult));
+         if (signatureResult == Pass) anySignaturePassed = true; else result = signatureResult;
+      }
+      return anySignaturePassed ? Pass : result;
+   }
 
-      return result;
-
-
+   AnsiString
+   DKIM::GetSignatureDomain_(AnsiString headerValue)
+   {
+      MimeField::UnfoldField(headerValue);
+      DKIMParameters signatureParams; signatureParams.Load(headerValue);
+      return signatureParams.GetValue("d");
    }
 
    DKIM::Result 

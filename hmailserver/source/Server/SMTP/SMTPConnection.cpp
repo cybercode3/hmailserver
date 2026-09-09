@@ -45,6 +45,8 @@
 
 #include "../Common/AntiSpam/AntiSpamConfiguration.h"
 #include "../Common/AntiSpam/SpamProtection.h"
+#include "../Common/AntiSpam/SenderAuthentication.h"
+#include "../Common/AntiSpam/AuthenticationResultsHeader.h"
 
 #include "../Common/Application/TimeoutCalculator.h"
 #include "../Common/Scripting/ScriptServer.h"
@@ -148,17 +150,31 @@ namespace HM
                GetConnectionSecurity() == CSSTARTTLSRequired)
       {
          /*
-           Upon completion of the TLS handshake, the SMTP protocol is reset to
-           the initial state (the state in SMTP after a server issues a 220
-           service ready greeting). The server MUST discard any knowledge
-           obtained from the client, such as the argument to the EHLO command,
-           which was not obtained from the TLS negotiation itself.
+           RFC 3207, 4.2:
+
+             Upon completion of the TLS handshake, the SMTP protocol is reset to
+             the initial state (the state in SMTP after a server issues a 220
+             service ready greeting). The server MUST discard any knowledge
+             obtained from the client, such as the argument to the EHLO command,
+             which was not obtained from the TLS negotiation itself.
          */
 
          helo_host_.Empty();
          start_tls_used_ = true;
          ResetLoginCredentials_();
          ResetCurrentMessage_();
+
+         /*
+           The initial state is the state before any greeting, so the client has to
+           greet us again before it can send mail. RFC 5321, 4.1.4:
+
+             A session that will contain mail transactions MUST first be
+             initialized by the use of the EHLO command.
+
+           The commands which need no initialization are unaffected, since they are
+           dispatched ahead of the state switch in InternalParseData.
+         */
+         current_state_ = INITIAL;
 
          EnqueueRead();
       }
@@ -449,13 +465,19 @@ namespace HM
       if (!CheckStartTlsRequired_())
          return;
 
-      const bool isInitialState = (current_state_ == INITIAL);
+      /*
+        RSET is answered normally even before the client has greeted us.
+        RFC 5321, 4.1.4:
 
+          The NOOP, HELP, EXPN, VRFY, and RSET commands can be used at any time
+          during a session, or without previously initializing a session. SMTP
+          servers SHOULD process these normally (that is, not return a 503 code)
+          even if no EHLO command has yet been received [...]
+
+        ResetCurrentMessage_ leaves an ungreeted session in INITIAL, so the reply
+        below does not let the client past the greeting.
+      */
       ResetCurrentMessage_();
-
-      if (isInitialState) {
-         current_state_ = INITIAL;
-      }
 
       EnqueueWrite_("250 OK");
    }
@@ -817,17 +839,20 @@ namespace HM
       if (!GetDoSpamProtection_())
          return true;
 
+      if (!sender_authentication_)
+         sender_authentication_ = std::shared_ptr<SenderAuthentication>(new SenderAuthentication);
+
       if (spType == SPPreTransmission)
       {
          std::set<std::shared_ptr<SpamTestResult> > setResult = 
-            SpamProtection::Instance()->RunPreTransmissionTests(sFromAddress, lIPAddress, GetRemoteEndpointAddress(), hostName);
+            SpamProtection::Instance()->RunPreTransmissionTests(sFromAddress, lIPAddress, GetRemoteEndpointAddress(), hostName, sender_authentication_);
 
          spam_test_results_.insert(setResult.begin(), setResult.end());
       }
       else if (spType == SPPostTransmission)
       {
          std::set<std::shared_ptr<SpamTestResult> > setResult = 
-            SpamProtection::Instance()->RunPostTransmissionTests(sFromAddress, lIPAddress, GetRemoteEndpointAddress(), current_message_);
+            SpamProtection::Instance()->RunPostTransmissionTests(sFromAddress, lIPAddress, GetRemoteEndpointAddress(), hostName, current_message_, sender_authentication_);
 
          spam_test_results_.insert(setResult.begin(), setResult.end());
 
@@ -838,12 +863,20 @@ namespace HM
       int deleteThreshold = Configuration::Instance()->GetAntiSpamConfiguration().GetSpamDeleteThreshold();
       int markThreshold = Configuration::Instance()->GetAntiSpamConfiguration().GetSpamMarkThreshold();
 
-      if (deleteThreshold > 0 && iTotalSpamScore >= deleteThreshold)
+      // A test may ask for the message to be rejected regardless of the spam score.
+      std::shared_ptr<SpamTestResult> rejectingResult;
+      for (std::shared_ptr<SpamTestResult> testResult : spam_test_results_)
+      {
+         if (testResult->GetRejectMessage())
+            rejectingResult = testResult;
+      }
+
+      if (rejectingResult || (deleteThreshold > 0 && iTotalSpamScore >= deleteThreshold))
       {
          ServerStatus::Instance()->OnSpamMessageDetected();
 
          // Generate a text string to send to the client.
-         String messageText = GetSpamTestResultMessage_(spam_test_results_);
+         String messageText = rejectingResult ? rejectingResult->GetMessage() : GetSpamTestResultMessage_(spam_test_results_);
 
          if (spType == SPPreTransmission)
             EnqueueWrite_("550 " + messageText);
@@ -1152,6 +1185,7 @@ namespace HM
 
             // Reset the spam protection results.
             spam_test_results_.clear();
+            sender_authentication_.reset();
 
             // Tell the client that everything went fine. This
             // will cause the client to either disconnect or to
@@ -1210,6 +1244,17 @@ namespace HM
 
          // Increase the spam-counter
          ServerStatus::Instance()->OnSpamMessageDetected();
+      }
+
+      if (sender_authentication_ && Configuration::Instance()->GetAntiSpamConfiguration().GetAddAuthenticationResultsHeader())
+      {
+         if (!pMsgData)
+         {
+            pMsgData = std::shared_ptr<MessageData>(new MessageData);
+            if (!pMsgData->LoadFromMessage(PersistentMessage::GetFileName(current_message_), current_message_))
+               pMsgData.reset();
+         }
+         AuthenticationResultsHeader::Apply(pMsgData, sender_authentication_);
       }
 
       SetMessageSignature_(pMsgData);
@@ -1485,14 +1530,28 @@ namespace HM
       sender_account_.reset();
 
       spam_test_results_.clear();
+      sender_authentication_.reset();
 
       // Reset the number of RCPT TO's for this 
       // message.
       cur_no_of_rcptto_ = 0;
 
-      // Switch back to normal ASCII mode and start of session, in
-      // case we are in binary transmission mode.
-      current_state_ = HEADER;
+      /*
+        Switch back to normal ASCII mode and start of session, in case we are in
+        binary transmission mode.
+
+        A session which hasn't been greeted stays in INITIAL: resetting the message
+        must never take the place of a HELO/EHLO. RFC 5321, 4.1.4:
+
+          A session that will contain mail transactions MUST first be initialized
+          by the use of the EHLO command.
+
+        A client which could reach HEADER by resetting would skip the greeting, and
+        with it the OnHELO/OnEHLO events and the HELO-based spam tests - the latter
+        would then run against an empty HELO host.
+      */
+      if (current_state_ != INITIAL)
+         current_state_ = HEADER;
    }
 
 
@@ -1599,7 +1658,7 @@ namespace HM
       if (!ReadDomainAddressFromHelo_(sRequest))
       {
          // The client did not supply a parameter to
-         // the helo command which is syntaxically
+         // the helo command which is syntactically
          // incorrect. Reject.
          SendErrorResponse_(501, "EHLO Invalid domain address.");
          return;
@@ -1671,7 +1730,7 @@ namespace HM
       if (!ReadDomainAddressFromHelo_(sRequest))
       {
          // The client did not supply a parameter to
-         // the helo command which is syntaxically
+         // the helo command which is syntactically
          // incorrect. Reject.
          SendErrorResponse_(501, "HELO Invalid domain address.");
          return;

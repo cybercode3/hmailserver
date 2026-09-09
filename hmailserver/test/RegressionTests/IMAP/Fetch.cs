@@ -21,7 +21,7 @@ namespace RegressionTests.IMAP
 
          string attachmentName = "本本本.zip";
 
-         string filename = Path.Combine(Path.GetTempPath(), attachmentName);
+         string filename = Path.Combine(TestSetup.GetSharedTempDirectory(), attachmentName);
          File.WriteAllText(filename, "tjena moss");
 
          var message = new Message();
@@ -79,7 +79,7 @@ namespace RegressionTests.IMAP
 
          string attachmentName = "本本本.zip";
 
-         string filename = Path.Combine(Path.GetTempPath(), attachmentName);
+         string filename = Path.Combine(TestSetup.GetSharedTempDirectory(), attachmentName);
          File.WriteAllText(filename, "tjena moss");
 
          var message = new Message();
@@ -217,7 +217,7 @@ namespace RegressionTests.IMAP
          string result = simulator.Fetch("1 BODY.PEEK[HEADER.FIELDS (Subject Subject)]");
          simulator.Disconnect();
 
-         Assert.AreEqual(1, StringExtensions.Occurences(result, "SubjectText"));
+         Assert.AreEqual(1, StringExtensions.Occurrences(result, "SubjectText"));
       }
 
 

@@ -47,21 +47,21 @@ namespace HM
       bool add_x_auth_user_ip = IniFileSettings::Instance()->GetAddXAuthUserIP();
       
       // If sender is logged in and replace IP is enabled use it
-      String overriden_received_ip_address;
-      String overriden_authenticated_ip_address;
+      String overridden_received_ip_address;
+      String overridden_authenticated_ip_address;
       if (!username_.IsEmpty() && !auth_replacement_ip.empty())
       {
-         overriden_received_ip_address = auth_replacement_ip;
-         overriden_authenticated_ip_address = remote_ip_address_;
+         overridden_received_ip_address = auth_replacement_ip;
+         overridden_authenticated_ip_address = remote_ip_address_;
       }
       else
       {
-         overriden_received_ip_address = remote_ip_address_;
-         overriden_authenticated_ip_address = overriden_received_ip_address;
+         overridden_received_ip_address = remote_ip_address_;
+         overridden_authenticated_ip_address = overridden_received_ip_address;
       }
 
       String new_header_lines;
-      new_header_lines += GenerateReceivedHeader_(overriden_received_ip_address);
+      new_header_lines += GenerateReceivedHeader_(overridden_received_ip_address);
 
       String sComputerName = Utilities::ComputerName();
 
@@ -90,7 +90,7 @@ namespace HM
       if (!username_.IsEmpty() && !auth_replacement_ip.empty() && add_x_auth_user_ip)
       {
          if (!original_headers_->FieldExists("X-AuthUserIP"))
-            new_header_lines += "X-AuthUserIP: " + overriden_authenticated_ip_address + "\r\n";
+            new_header_lines += "X-AuthUserIP: " + overridden_authenticated_ip_address + "\r\n";
       }
 
       AnsiString new_header_lines_ansi = new_header_lines;
@@ -98,7 +98,7 @@ namespace HM
    }
 
    String
-   SMTPMessageHeaderCreator::GenerateReceivedHeader_(const String &overriden_received_ip)
+   SMTPMessageHeaderCreator::GenerateReceivedHeader_(const String &overridden_received_ip)
    {
       String local_computer_name = Utilities::ComputerName();
 
@@ -139,7 +139,7 @@ namespace HM
          _T("\t; %s\r\n"),
          remote_hostname.c_str(),
          ptr_record_host.c_str(),
-         overriden_received_ip.c_str(),
+         overridden_received_ip.c_str(),
          local_computer_name.c_str(),
          esmtp_additions.c_str(),
          cipher_line.c_str(),

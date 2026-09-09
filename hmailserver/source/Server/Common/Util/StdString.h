@@ -696,7 +696,7 @@ inline const Type& SSMAX(const Type& arg1, const Type& arg2)
 #endif
 
 
-// SGI compiler 7.3 doesnt know these  types - oh and btw, remember to use
+// SGI compiler 7.3 doesn't know these  types - oh and btw, remember to use
 // -LANG:std in the CXX Flags
 #if defined(__sgi)
     typedef unsigned long           DWORD;

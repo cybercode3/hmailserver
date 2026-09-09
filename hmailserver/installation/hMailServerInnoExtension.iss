@@ -10,7 +10,10 @@ var
   rdoUseInternal : TRadioButton;
   rdoUseExternal : TRadioButton;
 
-// The NT-service specific parts of the scrit below is taken
+  // Non-zero if the installation failed. Setup exits with this code.
+  g_iExitCode : Integer;
+
+// The NT-service specific parts of the script below is taken
 // from the innosetup extension knowledgebase.
 // Author: Silvio Iaccarino silvio.iaccarino(at)de.adp.com
 // Article created: 6 November 2002
@@ -58,6 +61,9 @@ const
 	SERVICE_CONTINUE_PENDING    = $5;
 	SERVICE_PAUSE_PENDING       = $6;
 	SERVICE_PAUSED              = $7;
+
+	// How long to wait for the hMailServer service to stop before giving up.
+	SERVICE_STOP_TIMEOUT_MS     = 60000;
 
   // BEGIN .NET INSTALLER	
   mdacURL = 'http://download.microsoft.com/download/4/a/a/4aafff19-9d21-4d35-ae81-02c48dcbbbff/MDAC_TYP.EXE';
@@ -203,10 +209,67 @@ begin
 	end
 end;
 
+
+// Waits for the service to reach the stopped state. Returns false if it was
+// still running when the timeout expired, or if its status can't be read.
+function WaitForServiceStopped(ServiceName: AnsiString; TimeoutMS: Integer) : boolean;
+var
+	hSCM	: HANDLE;
+	hService: HANDLE;
+	Status	: SERVICE_STATUS;
+	iWaited	: Integer;
+begin
+	Result := false;
+	hSCM := OpenSCManager('','ServicesActive',SC_MANAGER_ALL_ACCESS);
+	if hSCM = 0 then
+		exit;
+	hService := OpenService(hSCM,ServiceName,SERVICE_QUERY_STATUS);
+	if hService <> 0 then begin
+		iWaited := 0;
+		while True do begin
+			if QueryServiceStatus(hService,Status) = false then break;
+			if Status.dwCurrentState = SERVICE_STOPPED then begin Result := true; break; end;
+			if iWaited >= TimeoutMS then break;
+			Sleep(250);
+			iWaited := iWaited + 250;
+		end;
+		CloseServiceHandle(hService)
+	end;
+	CloseServiceHandle(hSCM)
+end;
+
+procedure ReportServiceStopFailure(szMessage: String);
+begin
+	Log('hMailServer: ' + szMessage);
+	SuppressibleMsgBox(szMessage, mbError, MB_OK, IDOK);
+end;
+
+function StopServiceAndWait(ServiceName: AnsiString) : boolean;
+begin
+	Result := true;
+	if IsServiceRunning(ServiceName) = false then exit;
+	StopService(ServiceName);
+	Result := WaitForServiceStopped(ServiceName, SERVICE_STOP_TIMEOUT_MS);
+end;
+
+function GetProgramDataDir() : AnsiString;
+begin
+   Result := ExpandConstant('{commonappdata}\hMailServer');
+end;
+
 function GetInifile() : AnsiString;
 var
    szInifile : String;
 begin
+
+   // New installations keep the file in ProgramData.
+   szInifile := GetProgramDataDir() + '\hMailServer.ini';
+
+   if (FileExists(szInifile) = True) then
+   begin
+      Result := szInifile;
+      exit;
+   end;
 
    // Check if the file exists in the selected installation directory.
    szInifile := ExpandConstant('{app}\Bin\hMailServer.ini');
@@ -239,6 +302,32 @@ end;
 function GetHashedPassword(Param: String) : String;
 begin
   Result := GetMD5OfString(g_szAdminPassword);
+end;
+
+// True for new installations, which keep the ini file and the data directories
+// in ProgramData. Existing installations keep whatever layout they already have.
+function IsProgramDataInstallation() : Boolean;
+var
+   szIniFile : AnsiString;
+begin
+   szIniFile := GetInifile();
+   Result := (szIniFile = '') or (szIniFile = GetProgramDataDir() + '\hMailServer.ini');
+end;
+
+function GetIniPath(Param: String) : String;
+begin
+   if (IsProgramDataInstallation()) then
+      Result := GetProgramDataDir() + '\hMailServer.ini'
+   else
+      Result := GetInifile();
+end;
+
+function GetDefaultDir(Param: String) : String;
+begin
+   if (IsProgramDataInstallation()) then
+      Result := GetProgramDataDir() + '\' + Param
+   else
+      Result := ExpandConstant('{app}') + '\' + Param;
 end;
 
 function GetCurrentDatabaseType() : AnsiString;
@@ -306,7 +395,7 @@ begin
 	
 	      // If server installation has not been selected, we should skip it,
 	      // since the password is for the server...
-	      if (IsComponentSelected('server') = false) then
+	      if (WizardIsComponentSelected('server') = false) then
 	      begin
 	         Result := true;
 	      end;
@@ -328,7 +417,7 @@ begin
           Result := true;
        end;
 
-       if (IsComponentSelected('server') = false) then
+       if (WizardIsComponentSelected('server') = false) then
        begin
           Result := true;
        end;
@@ -452,6 +541,10 @@ begin
    else
       g_bUseInternal := false;
 
+   // The password page isn't shown during an unattended installation, and never during
+   // an upgrade. /ADMINPASSWORD= makes it possible to supply the password in those cases.
+   g_szAdminPassword := ExpandConstant('{param:ADMINPASSWORD}');
+
    OverrideInstallationFolder();
 
    if (WizardSilent() = false) then
@@ -568,7 +661,7 @@ var
    bUpgradeWithSQLCE : Boolean;
 begin
 
-   szIniFile := ExpandConstant('{app}\Bin\hMailServer.ini');
+   szIniFile := GetIniPath('');
    szDatabaseType := GetIniString('Database', 'Type', '', szIniFile);
    szDatabaseType := Lowercase(szDatabaseType);
 
@@ -576,7 +669,7 @@ begin
    bUpgradeWithSQLCE := (szDatabaseType = 'mssqlce');
 
 
-   // Only install SQL CE if we haven't already choosen another
+   // Only install SQL CE if we haven't already chosen another
    // database, or if this is a fresh installation. No point in
    // installing SQL CE if MySQL is used.
 
@@ -608,6 +701,57 @@ begin
 end;
 
 
+procedure ExitProcess(uExitCode: UINT);
+  external 'ExitProcess@kernel32.dll stdcall';
+
+// Aborts the installation with an error message. Inno Setup ignores an exception
+// raised after the files have been installed, and would report success even though
+// the installation failed. The exception stops the remaining post-installation
+// tasks, and the exit code is set when setup shuts down. 4 is the exit code Inno
+// Setup itself uses for a fatal error during installation.
+procedure FailPostInstall(szMessage: String);
+begin
+   Log('hMailServer: ' + szMessage);
+   SuppressibleMsgBox(szMessage, mbError, MB_OK, IDOK);
+
+   g_iExitCode := 4;
+
+   RaiseException(szMessage);
+end;
+
+procedure DeinitializeSetup();
+begin
+   if (g_iExitCode <> 0) then
+   begin
+      DelTree(ExpandConstant('{tmp}'), True, True, True);
+      ExitProcess(g_iExitCode);
+   end;
+end;
+
+// Must be kept in sync with hMailServer.Shared.ExitCodes.
+function GetDatabaseSetupErrorMessage(ResultCode: Integer) : String;
+begin
+   case ResultCode of
+      2: Result := 'The hMailServer database could not be upgraded because the hMailServer administrator password was not accepted.' #13#13 'Re-run the setup program with /ADMINPASSWORD=<password>, or run DBUpdater.exe manually.';
+      3: Result := 'The hMailServer database upgrade failed. Please check the hMailServer error log for further details.';
+   else
+      Result := 'The hMailServer database setup failed with error code ' + IntToStr(ResultCode) + '.' #13#13 'Please check the hMailServer error log for further details.';
+   end;
+end;
+
+// Gives the hMailServer service access to its own data. The service runs as the
+// virtual account NT SERVICE\hMailServer, which exists only once the service has
+// been created. On Windows versions before Windows 7, virtual accounts are not
+// available and the service stays on LocalSystem, which already has access.
+procedure GrantServiceAccountAccess();
+var
+   ResultCode : Integer;
+begin
+   Exec(ExpandConstant('{sys}\icacls.exe'),
+        '"' + GetProgramDataDir() + '" /grant "NT SERVICE\hMailServer":(OI)(CI)F',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 function RunPostInstallTasks() : Boolean;
    var
       ResultCode: Integer;
@@ -633,7 +777,12 @@ begin
 
       // Register hMaillServer service
       if (Exec(ExpandConstant('{app}\Bin\hMailServer.exe'), '/Register', '',  SW_HIDE, ewWaitUntilTerminated, ResultCode) = False) then
-         MsgBox(SysErrorMessage(ResultCode), mbError, MB_OK);
+         FailPostInstall('The hMailServer service could not be created. ' + SysErrorMessage(ResultCode));
+
+      // Must run after the service has been created - the virtual account doesn't
+      // exist until then.
+      if (IsProgramDataInstallation()) then
+         GrantServiceAccountAccess();
 
       ProgressPage.SetText('Initializing hMailServer database...', '');
       ProgressPage.SetProgress(4,6);
@@ -644,20 +793,25 @@ begin
       end;
 
 	  // Add the password as well, so that the administrator doesn't have to type it in again
-      //  if he have just entered it. If this is an upgrade, he'll have to enter it again though.
+      //  if he have just entered it, or supplied it using /ADMINPASSWORD.
       if (Length(g_szAdminPassword) > 0) then
          szParameters := szParameters + ' password:' + g_szAdminPassword;
-		 
+
       if ((GetCurrentDatabaseType() <> '') or g_bUseInternal) then
       begin
          if (Exec(ExpandConstant('{app}\Bin\DBSetupQuick.exe'), szParameters, '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) = False) then
-            MsgBox(SysErrorMessage(ResultCode), mbError, MB_OK);
+            FailPostInstall('DBSetupQuick.exe could not be started. ' + SysErrorMessage(ResultCode));
+
+         if (ResultCode <> 0) then
+            FailPostInstall(GetDatabaseSetupErrorMessage(ResultCode));
       end
       else
       begin
          if (Exec(ExpandConstant('{app}\Bin\DBSetup.exe'), szParameters, '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) = False) then
-            MsgBox(SysErrorMessage(ResultCode), mbError, MB_OK);
+            FailPostInstall('DBSetup.exe could not be started. ' + SysErrorMessage(ResultCode));
 
+         if (ResultCode <> 0) then
+            FailPostInstall(GetDatabaseSetupErrorMessage(ResultCode));
       end;
 
       ProgressPage.SetText('Starting the hMailServer service...', '');
@@ -665,7 +819,7 @@ begin
 
       // Start hMailServer
       if (Exec(ExpandConstant('{sys}\net.exe'), 'START hMailServer', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) = False) then
-         MsgBox(SysErrorMessage(ResultCode), mbError, MB_OK);
+         FailPostInstall('The hMailServer service could not be started. ' + SysErrorMessage(ResultCode));
 
       ProgressPage.SetText('Completed', '');
       ProgressPage.SetProgress(6,6);
@@ -676,6 +830,28 @@ begin
 
    Result := true;
 
+end;
+
+// Creates the ProgramData directory used by new installations. Inheritance is turned
+// off so that the permissions are known, and users are given read access so that they
+// can open the logs. See the Security page in the documentation for how to restrict
+// this further.
+procedure CreateProgramDataDir();
+var
+   szDir : AnsiString;
+   ResultCode : Integer;
+begin
+   szDir := GetProgramDataDir();
+
+   if (DirExists(szDir) = False) then
+      CreateDir(szDir);
+
+   // S-1-5-18 is LocalSystem, S-1-5-32-544 is the local Administrators group and
+   // S-1-5-32-545 is the local Users group. The SIDs are used rather than the names,
+   // since the names are localized.
+   Exec(ExpandConstant('{sys}\icacls.exe'),
+        '"' + szDir + '" /inheritance:r /grant *S-1-5-18:(OI)(CI)F /grant *S-1-5-32-544:(OI)(CI)F /grant *S-1-5-32-545:(OI)(CI)RX',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 function MoveIni() : Boolean;
@@ -803,15 +979,13 @@ begin
 	end
 	else if CurPage = wpReady then
 	begin
-		// Start hMailServer and MySQL, if they are running.
-		if IsServiceRunning('hMailServer') = true then
+		// Stop hMailServer, if it's running, so that its files aren't locked.
+		if StopServiceAndWait('hMailServer') = false then
 		begin
-		 	 StopService('hMailServer');
-		
-		   while (IsServiceStopped('hMailServer') = false) do
-		   begin
-		      Sleep(250);
-		   end;
+			ReportServiceStopFailure('The hMailServer service could not be stopped. Stop it manually and try again.');
+			Result := false;
+			if (WizardSilent() = true) then
+				g_iExitCode := 4;
 		end;
     end;
 	
@@ -834,14 +1008,17 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  szIniFile  : AnsiString;
 begin
 
 	if CurStep = ssInstall then
 	begin
 	   // Move hMailServer.ini before files are copied
 	   MoveIni();
+
+	   // Must run after MoveIni, so that an installation whose ini file was still
+	   // in the Windows directory is recognized as an existing installation.
+	   if (IsProgramDataInstallation()) then
+	      CreateProgramDataDir();
 	end;
 	
 	if CurStep = ssPostInstall then
@@ -850,17 +1027,14 @@ begin
 	  // other apps where we're installed.
 	  RegWriteStringValue(HKLM32, 'Software\hMailServer', 'InstallLocation', ExpandConstant('{app}'));
    	
-	  // Write db location to hMailServer.ini.
-	  szIniFile := ExpandConstant('{app}\Bin\hMailServer.ini');
-
   	// Create the hMailServer database
- 	  if (IsComponentSelected('server')) then
+	  if (WizardIsComponentSelected('server')) then
 	  begin
 	    RunPostInstallTasks();
 	  end
 	 else
 	 begin
-	   if (IsComponentSelected('admintools')) then
+	   if (WizardIsComponentSelected('admintools')) then
 	   begin
 	      RegisterTypeLib();
 	   end;
@@ -872,4 +1046,12 @@ begin
 
 end;
 
-
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+	// Stop hMailServer before [UninstallRun] unregisters the service and the files are removed.
+	if CurUninstallStep = usUninstall then
+	begin
+		if StopServiceAndWait('hMailServer') = false then
+			ReportServiceStopFailure('The hMailServer service could not be stopped. Some files may not be removed until the computer is restarted.');
+	end;
+end;

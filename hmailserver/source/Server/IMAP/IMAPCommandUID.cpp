@@ -15,6 +15,7 @@
 #include "IMAPStore.h"
 #include "IMAPCommandSearch.h"
 #include "MessagesContainer.h"
+#include "IMAPFolderView.h"
 
 #include "../Common/BO/IMAPFolder.h"
 #include "../Common/BO/Message.h"
@@ -235,69 +236,67 @@ namespace HM
          return IMAPResult(IMAPResult::ResultNo, "Expunge command on read-only folder.");
 
       std::shared_ptr<IMAPFolder> current_folder = pConnection->GetCurrentFolder();
-
       if (!current_folder)
          return IMAPResult(IMAPResult::ResultNo, "No folder selected.");
-
       if (!pConnection->CheckPermission(current_folder, ACLPermission::PermissionExpunge))
          return IMAPResult(IMAPResult::ResultBad, "ACL: Expunge permission denied (Required for EXPUNGE command).");
+
+      auto view = pConnection->GetCurrentFolderView();
+      if (!view)
+         return IMAPResult(IMAPResult::ResultNo, "No folder selected.");
+
+      auto messages = MessagesContainer::Instance()->GetMessages(current_folder->GetAccountID(), current_folder->GetID());
+      view->AppendNewMessages(messages);
 
       std::vector<String> sequence_parts = StringParser::SplitString(sequence_set, _T(","));
       unsigned int highest_uid = current_folder->GetCurrentUID();
 
-      std::vector<__int64> expunged_message_ids;
-      std::vector<__int64> expunged_message_indexes;
+      auto entries = view->GetAllEntries();
+      std::set<__int64> view_ids;
+      for (const auto &entry : entries)
+         view_ids.insert(entry.second.message_id);
+      auto current_messages = messages->GetCopyByIds(view_ids);
 
-      std::function<bool(int, std::shared_ptr<Message>)> filter =
-         [&expunged_message_ids, &expunged_message_indexes, &sequence_parts, highest_uid](int index, std::shared_ptr<Message> message) -> bool
+      std::set<__int64> messages_to_delete;
+      for (const auto &entry : entries)
       {
-         if (!message->GetFlagDeleted())
-            return false;
-
-         unsigned int uid = message->GetUID();
-         if (uid == 0)
-            return false;
-
-         if (!UIDMatchesSequence_(uid, sequence_parts, highest_uid))
-            return false;
-
-         expunged_message_indexes.push_back(index);
-         expunged_message_ids.push_back(message->GetID());
-         return true;
-      };
-
-      auto messages = MessagesContainer::Instance()->GetMessages(current_folder->GetAccountID(), current_folder->GetID());
-      messages->DeleteMessages(filter);
-
-      String response;
-      for (__int64 message_index : expunged_message_indexes)
-      {
-         String line;
-         line.Format(_T("* %d EXPUNGE\r\n"), (int)message_index);
-         response += line;
-      }
-
-      pConnection->SendAsciiData(response);
-
-      if (!expunged_message_ids.empty())
-      {
-         auto& recent_messages = pConnection->GetRecentMessages();
-
-         for (__int64 message_id : expunged_message_ids)
+         auto iter = current_messages.find(entry.second.message_id);
+         if (iter == current_messages.end())
          {
-            auto recent_it = recent_messages.find(message_id);
-            if (recent_it != recent_messages.end())
-               recent_messages.erase(recent_it);
+            view->MarkVanished(entry.second.message_id);
+            continue;
          }
 
-         std::shared_ptr<ChangeNotification> notification =
-            std::shared_ptr<ChangeNotification>(new ChangeNotification(current_folder->GetAccountID(), current_folder->GetID(), ChangeNotification::NotificationMessageDeleted, expunged_message_indexes));
+         std::shared_ptr<Message> message = iter->second;
+         if (!message->GetFlagDeleted())
+            continue;
+         unsigned int uid = message->GetUID();
+         if (uid != 0 && UIDMatchesSequence_(uid, sequence_parts, highest_uid))
+            messages_to_delete.insert(entry.second.message_id);
+      }
 
+      auto deleted_message_ids = messages->DeleteMessagesById(messages_to_delete);
+      auto expunged_sequences = view->RemoveMessages(deleted_message_ids);
+      pConnection->RemoveRecentMessages(deleted_message_ids);
+
+      String response;
+      for (int sequence : expunged_sequences)
+      {
+         String line;
+         line.Format(_T("* %d EXPUNGE\r\n"), sequence);
+         response += line;
+      }
+      if (!response.IsEmpty())
+         pConnection->SendAsciiData(response);
+
+      if (!deleted_message_ids.empty())
+      {
+         std::shared_ptr<ChangeNotification> notification =
+            std::make_shared<ChangeNotification>(current_folder->GetAccountID(), current_folder->GetID(), ChangeNotification::NotificationMessageDeleted, deleted_message_ids);
          Application::Instance()->GetNotificationServer()->SendNotification(pConnection->GetNotificationClient(), notification);
       }
 
       pConnection->SendAsciiData(pArgument->Tag() + " OK UID EXPUNGE completed\r\n");
-
       return IMAPResult();
    }
 

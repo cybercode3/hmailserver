@@ -9,6 +9,7 @@
 
 #include "IMAPConnection.h"
 #include "MessagesContainer.h"
+#include "IMAPFolderView.h"
 
 #include "../Common/BO/IMAPFolder.h"
 #include "../Common/BO/Message.h"
@@ -63,7 +64,6 @@ namespace HM
          return permission_result;
 
       IMAPResult copy_result = IMAPCopy::DoAction(pConnection, messageIndex, pOldMessage, pArgument);
-
       if (copy_result.GetResult() != IMAPResult::ResultOK)
          return copy_result;
 
@@ -72,86 +72,45 @@ namespace HM
          return IMAPResult(IMAPResult::ResultNo, "No folder selected.");
 
       auto messages = MessagesContainer::Instance()->GetMessages(current_folder->GetAccountID(), current_folder->GetID());
+      std::set<__int64> ids_to_delete;
+      ids_to_delete.insert(pOldMessage->GetID());
+      auto deleted_message_ids = messages->DeleteMessagesById(ids_to_delete);
 
-      std::vector<__int64> expunged_indexes;
-      std::vector<__int64> expunged_message_ids;
-      __int64 message_database_id = pOldMessage->GetID();
-
-      std::function<bool(int, std::shared_ptr<Message>)> filter =
-         [&expunged_indexes, &expunged_message_ids, message_database_id](int index, std::shared_ptr<Message> message)
-         {
-            if (message->GetID() != message_database_id)
-               return false;
-
-            expunged_indexes.push_back(index);
-            expunged_message_ids.push_back(message->GetID());
-
-            return true;
-         };
-
-      messages->DeleteMessages(filter);
-
-      if (expunged_indexes.empty())
+      if (deleted_message_ids.empty())
       {
          std::shared_ptr<IMAPFolder> destination_folder = GetDestinationFolder();
          __int64 destination_message_id = GetLastDestinationMessageID();
-
          if (destination_folder && destination_message_id > 0)
          {
             auto destination_messages = MessagesContainer::Instance()->GetMessages(destination_folder->GetAccountID(), destination_folder->GetID());
-
-            std::function<bool(int, std::shared_ptr<Message>)> destination_filter =
-               [destination_message_id](int /*index*/, std::shared_ptr<Message> message)
-               {
-                  if (message->GetID() != destination_message_id)
-                     return false;
-
-                  return true;
-               };
-
-            destination_messages->DeleteMessages(destination_filter);
+            std::set<__int64> rollback_ids;
+            rollback_ids.insert(destination_message_id);
+            destination_messages->DeleteMessagesById(rollback_ids);
             MessagesContainer::Instance()->SetFolderNeedsRefresh(destination_folder->GetID());
          }
-
          ClearLastDestinationMessageID();
-
          return IMAPResult(IMAPResult::ResultNo, "MOVE failed to remove source message.");
       }
 
       ClearLastDestinationMessageID();
 
-      String response;
-      for (__int64 index : expunged_indexes)
-      {
-         String line;
-         line.Format(_T("* %I64d EXPUNGE\r\n"), index);
-         response += line;
-      }
+      auto view = pConnection->GetCurrentFolderView();
+      std::vector<int> expunged_sequences;
+      if (view)
+         expunged_sequences = view->RemoveMessages(deleted_message_ids);
+      pConnection->RemoveRecentMessages(deleted_message_ids);
 
+      String response;
+      for (int sequence : expunged_sequences)
+         response.AppendFormat(_T("* %d EXPUNGE\r\n"), sequence);
       if (!response.IsEmpty())
          pConnection->SendAsciiData(response);
 
-      if (!expunged_message_ids.empty())
-      {
-         auto& recent_messages = pConnection->GetRecentMessages();
-         for (__int64 message_id : expunged_message_ids)
-         {
-            auto recent_it = recent_messages.find(message_id);
-            if (recent_it != recent_messages.end())
-               recent_messages.erase(recent_it);
-         }
-
-         // EXPUNGE notifications carry message sequence numbers, not database IDs.
-         std::shared_ptr<ChangeNotification> notification =
-            std::make_shared<ChangeNotification>(
-               current_folder->GetAccountID(),
-               current_folder->GetID(),
-               ChangeNotification::NotificationMessageDeleted,
-               expunged_indexes);
-
-         Application::Instance()->GetNotificationServer()->SendNotification(pConnection->GetNotificationClient(), notification);
-      }
+      std::shared_ptr<ChangeNotification> notification =
+         std::make_shared<ChangeNotification>(current_folder->GetAccountID(), current_folder->GetID(), ChangeNotification::NotificationMessageDeleted, deleted_message_ids);
+      Application::Instance()->GetNotificationServer()->SendNotification(pConnection->GetNotificationClient(), notification);
 
       return IMAPResult();
    }
+
 }

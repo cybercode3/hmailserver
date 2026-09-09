@@ -34,6 +34,8 @@
 #include "../Common/Cache/CacheContainer.h"
 #include "../Common/AntiSpam/AntiSpamConfiguration.h"
 #include "../Common/AntiSpam/SpamProtection.h"
+#include "../Common/AntiSpam/SenderAuthentication.h"
+#include "../Common/AntiSpam/SpamTestResult.h"
 
 #include <boost/algorithm/string.hpp>
 
@@ -52,7 +54,9 @@ namespace HM
                                               AnsiString remote_hostname) :
       TCPConnection(connectionSecurity, io_context, context, disconnected, remote_hostname),
       account_(pAccount),
-      current_state_(StateConnected)
+      current_state_(StateConnected),
+      cur_download_(uidlresponse_.end()),
+      cur_cleanup_(downloaded_messages_.end())
    {
 
       /*
@@ -394,7 +398,7 @@ namespace HM
             iter++;
          }
 
-         cur_message_ = uidlresponse_.begin();
+         cur_download_ = uidlresponse_.begin();
 
          RequestNextMessage_();
 
@@ -407,9 +411,9 @@ namespace HM
    bool
    POP3ClientConnection::RequestNextMessage_()
    {
-      while (cur_message_ != uidlresponse_.end())
+      while (cur_download_ != uidlresponse_.end())
       {
-         String sCurrentUID = (*cur_message_).second;
+         String sCurrentUID = (*cur_download_).second;
 
          // Check if the current message is already in the list
          // of fetch UID's
@@ -422,7 +426,7 @@ namespace HM
             // drop it later on when purging the mailbox. (We only purge
             // items we have downloaded). And since it was downloaded during
             // a previous session, we can safely drop it..
-            int iID = (*cur_message_).first;
+            int iID = (*cur_download_).first;
             downloaded_messages_[iID] = sCurrentUID;
 
             // The message has already been downloaded. Give scripts a chance
@@ -436,7 +440,7 @@ namespace HM
 
             current_message_ = std::shared_ptr<Message> (new Message);
 
-            int iMessageIdx = (*cur_message_).first;
+            int iMessageIdx = (*cur_download_).first;
 
             String sResponse;
             sResponse.Format(_T("RETR %d"), iMessageIdx);
@@ -455,12 +459,12 @@ namespace HM
             return true;
          }
       
-         cur_message_++;
+         cur_download_++;
 
       }
 
       // We reached the end of the message list.
-      if (cur_message_ == uidlresponse_.end())
+      if (cur_download_ == uidlresponse_.end())
       {
          StartMailboxCleanup_();
       }
@@ -472,7 +476,7 @@ namespace HM
    void
    POP3ClientConnection::StartMailboxCleanup_()
    {
-      cur_message_ = downloaded_messages_.begin();
+      cur_cleanup_ = downloaded_messages_.begin();
       SetReceiveBinary(false);
 
       MailboxCleanup_();
@@ -481,11 +485,11 @@ namespace HM
    void
    POP3ClientConnection::MailboxCleanup_()
    {
-      while (cur_message_ != downloaded_messages_.end())
+      while (cur_cleanup_ != downloaded_messages_.end())
       {
          bool bRet = MessageCleanup_();
 
-         cur_message_++;
+         cur_cleanup_++;
 
          if (bRet)
          {
@@ -560,8 +564,8 @@ namespace HM
       if (CommandIsSuccessfull_(sData))
       {
          // Log that this message has been downloaded.
-         int iID = (*cur_message_).first;
-         String sCurrentUID = (*cur_message_).second;
+         int iID = (*cur_download_).first;
+         String sCurrentUID = (*cur_download_).second;
          downloaded_messages_[iID] = sCurrentUID;
 
          return;
@@ -774,7 +778,7 @@ namespace HM
          // should we scan this message for virus later on?
          current_message_->SetFlagVirusScan(account_->GetUseAntiVirus());
 
-         FireOnExternalAccountDownload_(current_message_, (*cur_message_).second);
+         FireOnExternalAccountDownload_(current_message_, (*cur_download_).second);
 
          // the message was not classified as spam which we should delete.
          SaveMessage_();
@@ -789,7 +793,7 @@ namespace HM
       SetReceiveBinary(false);
 
       // Move on to the next message to download
-      cur_message_++;
+      cur_download_++;
 
       RequestNextMessage_();
    
@@ -823,16 +827,18 @@ namespace HM
          return true;
 
       std::set<std::shared_ptr<SpamTestResult> > setSpamTestResults;
+
+      std::shared_ptr<SenderAuthentication> senderAuthentication(new SenderAuthentication);
       
       // Run PreTransmissionTests. These consists of light tests such as DNSBL/SPF checks.
       std::set<std::shared_ptr<SpamTestResult> > setResult = 
-           SpamProtection::Instance()->RunPreTransmissionTests(senderAddress, ipAddress, ipAddress, hostName);
+           SpamProtection::Instance()->RunPreTransmissionTests(senderAddress, ipAddress, ipAddress, hostName, senderAuthentication);
 
       setSpamTestResults.insert(setResult.begin(), setResult.end());
 
       // Run PostTransmissionTests. These consists of more heavy stuff such as SURBL and SpamAssassin-
       setResult =
-         SpamProtection::Instance()->RunPostTransmissionTests(senderAddress, ipAddress, ipAddress, current_message_);
+         SpamProtection::Instance()->RunPostTransmissionTests(senderAddress, ipAddress, ipAddress, hostName, current_message_, senderAuthentication);
 
       setSpamTestResults.insert(setResult.begin(), setResult.end());
       
@@ -916,9 +922,9 @@ namespace HM
    void 
    POP3ClientConnection::MarkCurrentMessageAsRead_()
    {
-      if (cur_message_ != uidlresponse_.end())
+      if (cur_download_ != uidlresponse_.end())
       {
-         String sUID = (*cur_message_).second;
+         String sUID = (*cur_download_).second;
 
          // If we're deleting this message immediately, there's
          // no point in adding it to the table.
@@ -935,8 +941,8 @@ namespace HM
    bool
    POP3ClientConnection::MessageCleanup_()
    {
-      int iIndex = (*cur_message_).first;
-      String sUID = (*cur_message_).second;
+      int iIndex = (*cur_cleanup_).first;
+      String sUID = (*cur_cleanup_).second;
 
       int iDaysToKeep = GetDaysToKeep_(sUID);
 
@@ -950,8 +956,16 @@ namespace HM
       }
       else if (iDaysToKeep > 0)
       {
-         // Check wether we should delete this UID.
+         // Check whether we should delete this UID.
          std::shared_ptr<FetchAccountUID> pUID = GetUIDList_()->GetUID(sUID);
+
+         if (!pUID)
+         {
+            // The UID is no longer tracked, so we don't know how old the message is. This
+            // happens if the server lists the same UID twice - deleting the first copy
+            // removes the UID. Keep the message rather than deleting it too early.
+            return false;
+         }
 
          // Get the creation date of the UID.
          DateTime dtCreation = pUID->GetCreationDate();
@@ -1174,7 +1188,7 @@ namespace HM
    {
       int iDaysToKeep = account_->GetDaysToKeep();
 
-      // Has an event overriden when messages should be deleted?
+      // Has an event overridden when messages should be deleted?
       if (event_results_.find(sUID) != event_results_.end())
       {
          std::shared_ptr<Result> result = event_results_[sUID];

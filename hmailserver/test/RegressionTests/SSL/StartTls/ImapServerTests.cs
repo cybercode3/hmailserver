@@ -17,7 +17,6 @@ namespace RegressionTests.SSL.StartTls
          SslSetup.SetupSSLPorts(_application);
 
          
-         Thread.Sleep(1000);
       }
 
       [SetUp]

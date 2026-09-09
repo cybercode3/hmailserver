@@ -5,6 +5,7 @@
 
 #include "IMAPCommandSEARCH.h"
 #include "IMAPConnection.h"
+#include "IMAPFolderView.h"
 #include "IMAPSort.h"
 #include "IMAPConfiguration.h"
 #include "IMAPListLookup.h"
@@ -83,49 +84,60 @@ namespace HM
       if (!pCurFolder)
          return IMAPResult(IMAPResult::ResultBad, "No selected folder");
 
-      std::vector<std::shared_ptr<Message>> messages = pCurFolder->GetMessages()->GetCopy();
+      auto view = pConnection->GetCurrentFolderView();
+
+      if (!view)
+         return IMAPResult(IMAPResult::ResultBad, "No selected folder");
+
+      // Search the messages in this session's view, using this session's numbering.
+      auto entries = view->GetAllEntries();
+
+      std::set<__int64> message_ids;
+      for (const auto &entry : entries)
+         message_ids.insert(entry.second.message_id);
+
+      auto messages = pCurFolder->GetMessages()->GetCopyByIds(message_ids);
 
       std::vector<String> sMatchingVec;
-      if (messages.size() > 0)
+      std::vector<std::pair<int, std::shared_ptr<Message> > > vecMatchingMessages;
+
+      for (const auto &entry : entries)
       {
-         // Iterate through the messages and see which ones match.
-         std::vector<std::pair<int, std::shared_ptr<Message> > > vecMatchingMessages;
+         int index = entry.first;
+         auto iter = messages.find(entry.second.message_id);
 
-         int index = 0;
-         for(std::shared_ptr<Message> pMessage : messages)
+         if (iter == messages.end())
          {
-            const String fileName = PersistentMessage::GetFileName(pConnection->GetAccount(), pMessage);
-
-            index++;
-            if (pMessage && DoesMessageMatch_(pConnection, pParser->GetCriteria(), fileName, pMessage, index))
-            {
-               // Yup we got a match.
-               vecMatchingMessages.push_back(make_pair(index, pMessage));
-            }
+            view->MarkVanished(entry.second.message_id);
+            continue;
          }
 
-         if (is_sort_)
-         {
-            IMAPSort oSorter;
-            oSorter.Sort(pConnection, vecMatchingMessages, pParser->GetCharsetName(), pParser->GetSortParser());
-            // Sort the message vector
-         }
+         std::shared_ptr<Message> pMessage = (*iter).second;
+         const String fileName = PersistentMessage::GetFileName(pConnection->GetAccount(), pMessage);
 
-         typedef std::pair<int, std::shared_ptr<Message> > MessagePair;
-         for(MessagePair messagePair : vecMatchingMessages)
-         {
-            int index = messagePair.first;
-            std::shared_ptr<Message> pMessage = messagePair.second;
+         if (DoesMessageMatch_(pConnection, pParser->GetCriteria(), fileName, pMessage, index))
+            vecMatchingMessages.push_back(make_pair(index, pMessage));
+      }
 
-            String sID;
-            if (is_uid_)
-               sID.Format(_T("%u"), pMessage->GetUID());
-            else
-               sID.Format(_T("%d"), index);
+      if (is_sort_)
+      {
+         IMAPSort oSorter;
+         oSorter.Sort(pConnection, vecMatchingMessages, pParser->GetCharsetName(), pParser->GetSortParser());
+      }
 
-            sMatchingVec.push_back(sID);
-         }
+      typedef std::pair<int, std::shared_ptr<Message> > MessagePair;
+      for(MessagePair messagePair : vecMatchingMessages)
+      {
+         int index = messagePair.first;
+         std::shared_ptr<Message> pMessage = messagePair.second;
 
+         String sID;
+         if (is_uid_)
+            sID.Format(_T("%u"), pMessage->GetUID());
+         else
+            sID.Format(_T("%d"), index);
+
+         sMatchingVec.push_back(sID);
       }
 
       // Send response
@@ -562,7 +574,7 @@ namespace HM
    IMAPCommandSEARCH::MatchesLARGERCriteria_(std::shared_ptr<Message> pMessage, std::shared_ptr<IMAPSearchCriteria> pCriteria)
    //---------------------------------------------------------------------------()
    // DESCRIPTION:
-   // Messages whose size is larger than the size specified in critera.
+   // Messages whose size is larger than the size specified in criteria.
    //---------------------------------------------------------------------------()
    {
       int iMessageSize = pMessage->GetSize();
@@ -578,7 +590,7 @@ namespace HM
    IMAPCommandSEARCH::MatchesSMALLERCriteria_(std::shared_ptr<Message> pMessage, std::shared_ptr<IMAPSearchCriteria> pCriteria)
    //---------------------------------------------------------------------------()
    // DESCRIPTION:
-   // Messages whose size is smaller than the size specified in critera.
+   // Messages whose size is smaller than the size specified in criteria.
    //---------------------------------------------------------------------------()
 {
       int iMessageSize = pMessage->GetSize();
@@ -669,10 +681,7 @@ namespace HM
    bool 
    IMAPCommandSEARCH::IsMessageRecent_(std::shared_ptr<IMAPConnection> pConnection, __int64 message_uid)
    {
-      auto& recent_messages = pConnection->GetRecentMessages();
-
-      auto recent_messages_iter = recent_messages.find(message_uid);
-      return recent_messages_iter != recent_messages.end();
+      return pConnection->IsRecentMessage(message_uid);
    }
 
    String

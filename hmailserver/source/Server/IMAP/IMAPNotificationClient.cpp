@@ -6,6 +6,7 @@
 #include "IMAPNotificationClient.h"
 #include "IMAPConnection.h"
 #include "IMAPStore.h"
+#include "IMAPFolderView.h"
 
 #include "../Common/Tracking/ChangeNotification.h"
 #include "../common/Tracking/NotificationServer.h"
@@ -101,6 +102,10 @@ namespace HM
       if (!parentConnection)
          return;
 
+      // The notifying thread is not this connection's thread. Hold its state lock so the
+      // folder cannot be closed between the idling check and the send.
+      IMAPConnection::StateLock lock(parentConnection->GetStateMutex());
+
       if (parentConnection->GetIsIdling())
       {
          try
@@ -140,11 +145,14 @@ namespace HM
       if (!connection)
          return;
 
+      // Lock order is always connection state before mutex_.
+      IMAPConnection::StateLock stateLock(connection->GetStateMutex());
       boost::lock_guard<boost::recursive_mutex> guard(mutex_);
 
       int lastExists = -1;
       int lastRecent = -1;
 
+      auto view = connection->GetCurrentFolderView();
       std::set<__int64> flagMessages;
 
       for(std::shared_ptr<ChangeNotification> changeNotification : cached_changes_)
@@ -153,66 +161,63 @@ namespace HM
          {
          case ChangeNotification::NotificationMessageAdded:
             {
-               std::shared_ptr<Messages> pMessages = connection->GetCurrentFolder()->GetMessages();
+               std::shared_ptr<IMAPFolder> currentFolder = connection->GetCurrentFolder();
+               if (!currentFolder)
+                  break;
+               std::shared_ptr<Messages> pMessages = currentFolder->GetMessages();
                pMessages->Refresh(false);
-               lastExists = pMessages->GetCount();
-               lastRecent = (int)connection->GetRecentMessages().size();
+               if (view)
+                  view->AppendNewMessages(pMessages);
+               lastExists = view ? view->GetMessageCount() : pMessages->GetCount();
+               lastRecent = (int)connection->GetRecentMessageCount();
                break;
             }
          case ChangeNotification::NotificationMessageDeleted:
             {
-               if (send_expunge)
-               {
-                  // Send EXPUNGE
-                  SendEXPUNGE_(changeNotification->GetAffectedMessages());
-
-                  // Send EXISTS
-                  std::shared_ptr<Messages> pMessages = connection->GetCurrentFolder()->GetMessages();
-                  lastExists = pMessages->GetCount();
-                  lastRecent = (int)connection->GetRecentMessages().size();
-
+               if (!send_expunge)
                   break;
-               }
+               SendEXPUNGE_(changeNotification->GetAffectedMessageIds());
+               if (view)
+                  lastExists = view->GetMessageCount();
+               lastRecent = (int)connection->GetRecentMessageCount();
+               break;
             }
          case ChangeNotification::NotificationMessageFlagsChanged:
             {
-               // Send flag notification
-               for(__int64 messageID : changeNotification->GetAffectedMessages())
-               {
-                  if (flagMessages.find(messageID) == flagMessages.end())
-                     flagMessages.insert(messageID);
-               }
-
+               for(__int64 messageID : changeNotification->GetAffectedMessageIds())
+                  flagMessages.insert(messageID);
                break;
             }
          }
       }
 
-      if (flagMessages.size() > 0)
+      if (send_expunge && view)
+      {
+         auto vanished = view->TakeVanished();
+         if (!vanished.empty())
+         {
+            SendEXPUNGE_(vanished);
+            lastExists = view->GetMessageCount();
+            lastRecent = (int)connection->GetRecentMessageCount();
+         }
+      }
+
+      if (!flagMessages.empty())
          SendFLAGS_(flagMessages);
-      
       if (lastExists >= 0)
          SendEXISTS_(lastExists);
-
       if (lastRecent >= 0)
          SendRECENT_(lastRecent);
 
       std::vector<std::shared_ptr<ChangeNotification> >::iterator iter = cached_changes_.begin();
-      
       for (; iter != cached_changes_.end();)
       {
          std::shared_ptr<ChangeNotification> changeNotification = (*iter);
-
-         switch (changeNotification->GetType())
+         if (changeNotification->GetType() == ChangeNotification::NotificationMessageDeleted && !send_expunge)
          {
-         case ChangeNotification::NotificationMessageDeleted:
-            if (!send_expunge)
-            {
-               iter++;
-               continue;
-            }
+            iter++;
+            continue;
          }
-
          iter = cached_changes_.erase(iter);
       }
    }
@@ -224,57 +229,59 @@ namespace HM
       if (!connection)
          return;
 
+      std::shared_ptr<IMAPFolder> currentFolder = connection->GetCurrentFolder();
+      if (!currentFolder)
+         return;
+
       switch (pChangeNotification->GetType())
       {
       case ChangeNotification::NotificationMessageAdded:
          {
-               std::shared_ptr<Messages> pMessages = connection->GetCurrentFolder()->GetMessages();
-            SendEXISTS_(pMessages->GetCount());
-            SendRECENT_((int)connection->GetRecentMessages().size());
+            std::shared_ptr<Messages> pMessages = currentFolder->GetMessages();
+            auto view = connection->GetCurrentFolderView();
+            if (view)
+               view->AppendNewMessages(pMessages);
+            SendEXISTS_(view ? view->GetMessageCount() : pMessages->GetCount());
+            SendRECENT_((int)connection->GetRecentMessageCount());
             break;
          }
       case ChangeNotification::NotificationMessageDeleted:
          {
-            // Send EXPUNGE
-            SendEXPUNGE_(pChangeNotification->GetAffectedMessages());
-
-            // Send EXISTS
-               std::shared_ptr<Messages> pMessages = connection->GetCurrentFolder()->GetMessages();
-            SendEXISTS_(pMessages->GetCount());
-            SendRECENT_((int)connection->GetRecentMessages().size());
-
+            SendEXPUNGE_(pChangeNotification->GetAffectedMessageIds());
+            auto view = connection->GetCurrentFolderView();
+            if (view)
+               SendEXISTS_(view->GetMessageCount());
+            SendRECENT_((int)connection->GetRecentMessageCount());
             break;
          }
       case ChangeNotification::NotificationMessageFlagsChanged:
          {
-            // Send flag notification
             std::set<__int64> affectedMessages;
-               for(__int64 messageID : pChangeNotification->GetAffectedMessages())
-            {
+            for(__int64 messageID : pChangeNotification->GetAffectedMessageIds())
                affectedMessages.insert(messageID);
-            }
-           
             SendFLAGS_(affectedMessages);
-
             break;
          }
       }
    }
 
-   void 
-
-   IMAPNotificationClient::SendEXPUNGE_(const std::vector<__int64> & vecMessages)
+   void
+   IMAPNotificationClient::SendEXPUNGE_(const std::vector<__int64> & message_ids)
    {
       std::shared_ptr<IMAPConnection> connection = parent_connection_.lock();
       if (!connection)
          return;
-
+      auto view = connection->GetCurrentFolderView();
+      if (!view)
+         return;
+      auto sequences = view->RemoveMessages(message_ids);
+      connection->RemoveRecentMessages(message_ids);
       String sResponse;
-      for(__int64 messageIndex : vecMessages)
-         sResponse.AppendFormat(_T("* %I64d EXPUNGE\r\n"), messageIndex);
-
+      for (int sequence : sequences)
+         sResponse.AppendFormat(_T("* %d EXPUNGE\r\n"), sequence);
+      if (sResponse.IsEmpty())
+         return;
       connection->SendAsciiData(sResponse);
-
    }
 
    void 
@@ -283,23 +290,23 @@ namespace HM
       std::shared_ptr<IMAPConnection> connection = parent_connection_.lock();
       if (!connection)
          return;
-
+      std::shared_ptr<IMAPFolder> currentFolder = connection->GetCurrentFolder();
+      if (!currentFolder)
+         return;
+      auto view = connection->GetCurrentFolderView();
+      if (!view)
+         return;
       for(__int64 messageID : vecMessages)
       {
-         String sResponse;
-
-         int foundIndex = 0;
-         std::shared_ptr<Message> pMessage = connection->GetCurrentFolder()->GetMessages()->GetItemByDBID(messageID, foundIndex);
-
+         int sequence = 0;
+         if (!view->GetSequenceByMessageID(messageID, sequence))
+            continue;
+         std::shared_ptr<Message> pMessage = currentFolder->GetMessages()->GetItemByDBID(messageID);
          if (!pMessage)
-            return;
-
-         connection->SendAsciiData(IMAPStore::GetMessageFlags(pMessage, foundIndex));
+            continue;
+         connection->SendAsciiData(IMAPStore::GetMessageFlags(pMessage, sequence));
       }
-
-
    }
-
 
    void 
    IMAPNotificationClient::SendEXISTS_(int iExists)

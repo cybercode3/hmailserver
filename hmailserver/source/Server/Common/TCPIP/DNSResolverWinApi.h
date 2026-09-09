@@ -15,12 +15,20 @@ namespace HM
       DNSResolverWinApi();
       virtual ~DNSResolverWinApi();
 
-      bool Query(const String &query, int resourceType, std::vector<DNSRecord> &foundRecords);
+      bool Query(const String &query, int resourceType, std::vector<DNSRecord> &foundRecords, bool bypassCache = false);
+
+      static bool NameMatchesQuery(const String &query, const String &recordName);
 
    private:
 
       bool IsDNSError_(int iErrorMessage);
    };
 
+
+   class DNSResolverWinApiTester
+   {
+   public:
+      void Test();
+   };
 
 }

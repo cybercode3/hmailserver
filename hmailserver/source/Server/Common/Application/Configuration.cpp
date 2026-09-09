@@ -13,7 +13,7 @@
 #include "../Cache/CacheContainer.h"
 #include "../Application/ObjectCache.h"
 #include "..\Scripting\ScriptServer.h"
-#include "..\Util\TLD.h"
+#include "..\Util\PublicSuffixList.h"
 #include "..\TCPIP\LocalIPAddresses.h"
 
 #include "../../POP3/POP3Configuration.h"
@@ -82,7 +82,7 @@ namespace HM
       ssl_certificates_->Refresh();
 
       ScriptServer::Instance()->LoadScripts();
-      TLD::Instance()->Initialize();
+      PublicSuffixList::Instance()->Initialize();
       LocalIPAddresses::Instance()->LoadIPAddresses();
 
       return imap_configuration_->Load();
@@ -111,6 +111,12 @@ namespace HM
          smtp_configuration_->OnPropertyChanged(pProperty);
    }
 
+
+   bool
+   Configuration::IsLoaded() const
+   {
+      return property_set_ != nullptr;
+   }
 
    std::shared_ptr<PropertySet>
    Configuration::GetSettings() const
@@ -655,6 +661,66 @@ namespace HM
          options = options &~option;
 
       GetSettings()->SetLong(PROPERTY_TLSOPTIONS, options);
+   }
+
+   int
+   Configuration::GetPasswordHashAlgorithm() const
+   {
+      if (!IsLoaded())
+         return 0;
+
+      return GetSettings()->GetLong(PROPERTY_PASSWORDHASHALGORITHM);
+   }
+
+   void
+   Configuration::SetPasswordHashAlgorithm(int algorithm)
+   {
+      GetSettings()->SetLong(PROPERTY_PASSWORDHASHALGORITHM, algorithm);
+   }
+
+   int
+   Configuration::GetPasswordHashMemoryCost() const
+   {
+      if (!IsLoaded())
+         return 0;
+
+      return GetSettings()->GetLong(PROPERTY_PASSWORDHASHMEMORYCOST);
+   }
+
+   void
+   Configuration::SetPasswordHashMemoryCost(int memoryCostKb)
+   {
+      GetSettings()->SetLong(PROPERTY_PASSWORDHASHMEMORYCOST, memoryCostKb);
+   }
+
+   int
+   Configuration::GetPasswordHashIterations() const
+   {
+      if (!IsLoaded())
+         return 0;
+
+      return GetSettings()->GetLong(PROPERTY_PASSWORDHASHITERATIONS);
+   }
+
+   void
+   Configuration::SetPasswordHashIterations(int iterations)
+   {
+      GetSettings()->SetLong(PROPERTY_PASSWORDHASHITERATIONS, iterations);
+   }
+
+   bool
+   Configuration::GetPasswordHashAutoUpgrade() const
+   {
+      if (!IsLoaded())
+         return false;
+
+      return GetSettings()->GetBool(PROPERTY_PASSWORDHASHAUTOUPGRADE);
+   }
+
+   void
+   Configuration::SetPasswordHashAutoUpgrade(bool enabled)
+   {
+      GetSettings()->SetBool(PROPERTY_PASSWORDHASHAUTOUPGRADE, enabled);
    }
 
    void
