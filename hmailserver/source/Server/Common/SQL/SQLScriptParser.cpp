@@ -36,6 +36,13 @@ namespace HM
          sErrorMessage = "Unable to read from file " + file_;
          return false;
       }
+
+      // Upgrade scripts may use Windows, Unix or legacy Mac line endings.
+      // Normalize them before splitting commands so each SQL statement is
+      // executed separately, which is required by SQL Server Compact.
+      sContents.Replace(_T("\r\n"), _T("\n"));
+      sContents.Replace(_T("\r"), _T("\n"));
+      sContents.Replace(_T("\n"), _T("\r\n"));
    
       String sCommandSeparator;
       switch (settings_->GetType())
