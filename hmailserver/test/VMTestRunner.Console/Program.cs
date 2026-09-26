@@ -67,11 +67,19 @@ namespace VMTestRunner.Console
 
          report.Tests = results;
 
+         var selectedEnvironments = SelectEnvironments(listEnvironments, options.Test);
+
+         if (selectedEnvironments == null)
+            return -1;
+
+         var selectedSet = new HashSet<TestEnvironment>(selectedEnvironments);
+
          var tests = listEnvironments
             .Select((environment, index) => new { environment, testIndex = index + 1 })
+            .Where(item => selectedSet.Contains(item.environment))
             .ToList();
 
-         WriteEstimatedCompletion(listEnvironments, options.MaxParallelism);
+         WriteEstimatedCompletion(selectedEnvironments, options.MaxParallelism);
 
          TestStatusBoard.Instance.Initialize(results.Select(result => result.Name));
 
@@ -90,7 +98,7 @@ namespace VMTestRunner.Console
                var testIndex = test.testIndex;
                var result = results[testIndex - 1];
 
-               Logger.Info($"{testIndex}/{listEnvironments.Count} - Test: {environment.Description} on {environment.OperatingSystem}. VM: {environment.VMName} (Snapshot: {environment.SnapshotName}), Include stress tests: {environment.IncludeStressTests}");
+               Logger.Info($"{testIndex}/{listEnvironments.Count} - Test: {environment.Description} on {environment.OperatingSystem}. VM: {environment.VMName} (Snapshot: {environment.SnapshotName}), Suite: {environment.TestSuite}, Include stress tests: {environment.IncludeStressTests}, Page heap: {environment.EnablePageHeap}");
 
                result.StartedUtc = DateTime.UtcNow;
                TestStatusBoard.Instance.SetRunning(testIndex, "Starting");
@@ -126,13 +134,15 @@ namespace VMTestRunner.Console
          var resultSummaryFile = RunContext.GetResultSummaryFilePath();
          TestResultWriter.Write(resultSummaryFile, report);
 
-         var failedCount = results.Count(result => result.Status != TestStatus.Passed);
+         var selectedResultIndexes = tests.Select(test => test.testIndex - 1).ToList();
+         var failedCount = selectedResultIndexes.Count(index => results[index].Status != TestStatus.Passed);
+         var selectedCount = selectedResultIndexes.Count;
 
-         Logger.Info($"All tests completed for {report.SoftwareUnderTest}. {results.Count - failedCount} passed, {failedCount} failed. Result summary saved to {resultSummaryFile}");
+         Logger.Info($"All selected tests completed for {report.SoftwareUnderTest}. {selectedCount - failedCount} passed, {failedCount} failed. Result summary saved to {resultSummaryFile}");
 
          // Info messages are not printed to the console, so the summary is written directly.
          TestStatusBoard.Instance.WriteLine(
-            $"{Environment.NewLine}{results.Count - failedCount} of {results.Count} tests passed for {Path.GetFileName(report.SoftwareUnderTest)}." +
+            $"{Environment.NewLine}{selectedCount - failedCount} of {selectedCount} selected tests passed for {Path.GetFileName(report.SoftwareUnderTest)}." +
             $"{Environment.NewLine}Results: {resultSummaryFile}",
             failedCount == 0 ? ConsoleColor.Green : ConsoleColor.Red);
 
@@ -144,6 +154,56 @@ namespace VMTestRunner.Console
 
          return failedCount == 0 ? 0 : 1;
       }
+
+      private static List<TestEnvironment> SelectEnvironments(List<TestEnvironment> allEnvironments, string test)
+      {
+         if (!string.IsNullOrWhiteSpace(test))
+         {
+            // Disabled tests are matched too, since naming one is how they are run.
+            var selected = allEnvironments
+               .Where(environment => string.Equals(environment.Name, test, StringComparison.OrdinalIgnoreCase))
+               .ToList();
+
+            if (selected.Count == 0)
+            {
+               Logger.Error($"No test matches '{test}'. Available tests:{Environment.NewLine}" +
+                  string.Join(Environment.NewLine, allEnvironments.Select(DescribeForSelection)));
+               return null;
+            }
+
+            if (selected.Count > 1)
+            {
+               Logger.Error($"'{test}' matches more than one test. Every test must have a unique name:{Environment.NewLine}" +
+                  string.Join(Environment.NewLine, selected.Select(DescribeForSelection)));
+               return null;
+            }
+
+            return selected;
+         }
+
+         var enabled = allEnvironments
+            .Where(environment => environment.Enabled)
+            .ToList();
+
+         var skipped = allEnvironments.Where(environment => !environment.Enabled).ToList();
+
+         if (skipped.Count > 0)
+         {
+            Logger.Info($"{skipped.Count} test(s) are disabled and were skipped. Run one by naming it with --test:{Environment.NewLine}" +
+               string.Join(Environment.NewLine, skipped.Select(environment => $"  {environment.Name}")));
+         }
+
+         if (enabled.Count == 0)
+         {
+            Logger.Error("Every test is disabled, so there is nothing to run.");
+            return null;
+         }
+
+         return enabled;
+      }
+
+      private static string DescribeForSelection(TestEnvironment environment) =>
+         environment.Enabled ? $"  {environment.Name}" : $"  {environment.Name} (disabled)";
 
       /// <summary>
       /// Tells the user which installer is being tested.

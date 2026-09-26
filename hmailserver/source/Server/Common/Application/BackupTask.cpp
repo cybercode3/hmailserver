@@ -42,14 +42,29 @@ namespace HM
          std::shared_ptr<BackupManager> manager_;
       } completionGuard(backupManager);
 
-      BackupExecuter oBE;
-      if (do_backup_)
+      try
       {
-         oBE.StartBackup();
+         BackupExecuter oBE;
+         if (do_backup_)
+         {
+            oBE.StartBackup();
+         }
+         else
+         {
+            oBE.StartRestore(backup_);
+         }
       }
-      else
+      catch (boost::thread_interrupted&)
       {
-         oBE.StartRestore(backup_);
+         throw;
+      }
+      catch (std::exception& error)
+      {
+         backupManager->OnBackupFailed(error.what());
+      }
+      catch (...)
+      {
+         backupManager->OnBackupFailed("Unknown error.");
       }
    }
 

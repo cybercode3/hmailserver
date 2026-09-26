@@ -17,9 +17,27 @@ namespace HM
    namespace
    {
       const AnsiString FieldName = "Authentication-Results";
+      // The result names registered for the spf method, RFC 8601 section 2.7.2.
       String GetSPFResultText(SPF::Result result)
       {
-         switch (result) { case SPF::Pass: return "pass"; case SPF::Fail: return "fail"; }
+         switch (result)
+         {
+         case SPF::Pass:
+            return "pass";
+         case SPF::Fail:
+            return "fail";
+         case SPF::SoftFail:
+            return "softfail";
+         case SPF::Neutral:
+            return "neutral";
+         case SPF::None:
+            return "none";
+         case SPF::TempError:
+            return "temperror";
+         case SPF::PermError:
+            return "permerror";
+         }
+
          return "neutral";
       }
       String GetDKIMResultText(DKIM::Result result)

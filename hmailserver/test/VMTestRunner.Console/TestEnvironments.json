@@ -208,4 +208,33 @@
     "postInstallCommands": [],
     "postInstallFileCopy": []
   }
+
+  ,
+  {
+    "name": "Windows 10 - Volume tests",
+    "operatingSystem": "Windows 10",
+    "description": "Volume tests",
+    "vmName": "Windows10",
+    "snapshotName": "Ready",
+    "enabled": false,
+    "enablePageHeap": false,
+    "testSuite": "VolumeTests",
+    "preInstallCommands": [],
+    "preInstallFileCopy": [],
+    "postInstallCommands": [],
+    "postInstallFileCopy": []
+  },
+  {
+    "name": "Windows 10 - Page heap: Regression tests",
+    "operatingSystem": "Windows 10",
+    "description": "Page heap: Regression tests",
+    "vmName": "Windows10",
+    "snapshotName": "Ready",
+    "enabled": false,
+    "enablePageHeap": true,
+    "preInstallCommands": [],
+    "preInstallFileCopy": [],
+    "postInstallCommands": [],
+    "postInstallFileCopy": []
+  }
 ]

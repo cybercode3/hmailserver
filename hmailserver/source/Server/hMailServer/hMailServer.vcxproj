@@ -641,6 +641,8 @@ EXIT 0
     <ClCompile Include="..\Smtp\SMTPDeliverer.cpp" />
     <ClCompile Include="..\Smtp\SMTPDeliveryManager.cpp" />
     <ClCompile Include="..\SMTP\SMTPForwarding.cpp" />
+    <ClCompile Include="..\SMTP\SRS\SRS.cpp" />
+    <ClCompile Include="..\SMTP\SRS\SenderRewriteScheme.cpp" />
     <ClCompile Include="..\SMTP\SMTPMessageHeaderCreator.cpp" />
     <ClCompile Include="..\Smtp\SMTPVacationMessageCreator.cpp" />
     <ClCompile Include="..\Smtp\SMTPVirusNotifier.cpp" />
@@ -1158,6 +1160,8 @@ EXIT 0
     <ClInclude Include="..\Smtp\SMTPDeliverer.h" />
     <ClInclude Include="..\Smtp\SMTPDeliveryManager.h" />
     <ClInclude Include="..\SMTP\SMTPForwarding.h" />
+    <ClInclude Include="..\SMTP\SRS\SRS.h" />
+    <ClInclude Include="..\SMTP\SRS\SenderRewriteScheme.h" />
     <ClInclude Include="..\SMTP\SMTPMessageHeaderCreator.h" />
     <ClInclude Include="..\Smtp\SMTPVacationMessageCreator.h" />
     <ClInclude Include="..\Smtp\SMTPVirusNotifier.h" />

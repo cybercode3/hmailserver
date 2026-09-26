@@ -5,6 +5,10 @@
 
 #include "SMTPMessageHeaderCreator.h"
 
+#include "../Common/BO/Message.h"
+#include "../Common/BO/MessageRecipients.h"
+#include "../Common/BO/MessageRecipient.h"
+
 #include "../Common/TCPIP/CipherInfo.h"
 #include "../Common/TCPIP/DNSResolver.h"
 
@@ -19,13 +23,14 @@
 
 namespace HM
 {
-   SMTPMessageHeaderCreator::SMTPMessageHeaderCreator(const String &username, const AnsiString &remote_ip_address, bool is_authenticated, bool is_message_submission, String helo_host, std::shared_ptr<MimeHeader> original_headers) :
+   SMTPMessageHeaderCreator::SMTPMessageHeaderCreator(const String &username, const AnsiString &remote_ip_address, bool is_authenticated, bool is_message_submission, String helo_host, std::shared_ptr<MimeHeader> original_headers, std::shared_ptr<Message> message) :
       username_(username),
       remote_ip_address_(remote_ip_address),
       is_authenticated_(is_authenticated),
       is_message_submission_(is_message_submission),
       original_headers_(original_headers),
       helo_host_(helo_host),
+      message_(message),
       is_tls_(false)
    {
 
@@ -127,6 +132,21 @@ namespace HM
       if (is_authenticated_)
          esmtp_additions += "A";
 
+      // Authenticated senders are known to us, so their envelope sender adds little. The
+      // server receiving the message from us records it instead.
+      String envelope_from;
+      if (message_ && !message_->GetFromAddress().IsEmpty() && !is_authenticated_)
+         envelope_from.Format(_T(" (envelope-from <%s>)"), message_->GetFromAddress().c_str());
+
+      // Only name a single recipient. Listing several would reveal Bcc recipients.
+      String envelope_to;
+      if (message_)
+      {
+         const auto &recipients = message_->GetRecipients()->GetVector();
+         if (recipients.size() == 1)
+            envelope_to.Format(_T(" for <%s>"), recipients.front()->GetOriginalAddress().c_str());
+      }
+
       String cipher_line;
 
       if (is_tls_)
@@ -134,14 +154,16 @@ namespace HM
 
       String sResult;
       sResult.Format(_T("Received: from %s (%s [%s])\r\n")
-         _T("\tby %s with ESMTP%s\r\n")
+         _T("\tby %s%s with ESMTP%s%s\r\n")
          _T("%s")
          _T("\t; %s\r\n"),
          remote_hostname.c_str(),
          ptr_record_host.c_str(),
          overridden_received_ip.c_str(),
          local_computer_name.c_str(),
+         envelope_from.c_str(),
          esmtp_additions.c_str(),
+         envelope_to.c_str(),
          cipher_line.c_str(),
          Time::GetCurrentMimeDate().c_str());
 
