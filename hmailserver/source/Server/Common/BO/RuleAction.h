@@ -62,6 +62,10 @@ namespace HM
       String GetScriptFunction() const {return script_function_; }
       void SetScriptFunction(const String &sNewVal) {script_function_ = sNewVal; }
 
+      // The name is written into script code as is, so only plain identifiers are allowed.
+      static bool IsValidScriptFunctionName(const String &name);
+      bool HasValidScriptFunction() const;
+
       bool XMLStore(XNode *pRuleNode, int iOptions);
       bool XMLLoad(XNode *pNode, int iOptions);
       bool XMLLoadSubItems(XNode *pNode, int iOptions) {return true;};
