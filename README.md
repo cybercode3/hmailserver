@@ -43,7 +43,7 @@ Create an environment variable named hMailServerLibs pointing at a folder where 
 
 Building OpenSSL
 ----------------
-hMailServer currently uses OpenSSL 3.5.8. The helper script downloads a clean OpenSSL 3.5.x source tree, imports the Visual Studio 2019 x64 build environment, and installs the result under `%hMailServerLibs%\openssl-<Version>\out64`.
+hMailServer currently uses OpenSSL 3.5.9. The helper script downloads a clean OpenSSL 3.5.x source tree, imports the Visual Studio 2019 x64 build environment, and installs the result under `%hMailServerLibs%\openssl-<Version>\out64`.
 
 Prerequisites:
 - The environment variable `hMailServerLibs`.
@@ -53,7 +53,7 @@ Prerequisites:
 Run from the repository root:
 
    <pre>
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-openssl.ps1 -Version 3.5.8
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File libraries\build-openssl.ps1 -Version 3.5.9
    </pre>
 
 Only OpenSSL 3.5.x is supported by this helper.
@@ -79,7 +79,7 @@ Run, from the repository root:
    </pre>
 
 The script auto-detects the OpenSSL version to link against from the hMailServer project; pass
-`-OpenSSLVersion 3.5.8` to override it. Only PostgreSQL 15.x and 16.x are supported (17 removed
+`-OpenSSLVersion 3.5.9` to override it. Only PostgreSQL 15.x and 16.x are supported (17 removed
 the `src\tools\msvc\build.pl` build system this relies on).
 
 Building MariaDB Connector/C
