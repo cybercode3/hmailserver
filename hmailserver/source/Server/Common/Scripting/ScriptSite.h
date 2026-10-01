@@ -178,12 +178,19 @@ public:
    // the script engine that your objects exist).
    STDMETHOD(LookupNamedItem)(LPCOLESTR pstrName,LPUNKNOWN* ppunkItem)
    {
-      object_container_->GetObjectByName(pstrName, ppunkItem);
+      if (ppunkItem == nullptr)
+         return E_POINTER;
 
-      if (ppunkItem == 0)
+      *ppunkItem = nullptr;
+      if (pstrName == nullptr)
+         return E_POINTER;
+
+      if (!object_container_ ||
+          !object_container_->GetObjectByName(pstrName, ppunkItem) ||
+          *ppunkItem == nullptr)
          return TYPE_E_ELEMENTNOTFOUND;
-      else
-         return S_OK;
+
+      return S_OK;
    }
 
    // This is an implementation method.

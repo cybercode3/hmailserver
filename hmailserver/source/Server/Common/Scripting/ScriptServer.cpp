@@ -402,6 +402,43 @@ namespace HM
       check(_T("VBScript"), _T("a\"b\\c"), _T("\"a\"\"b\\c\""));
       check(_T("VBScript"), _T("a\r\nb"), _T("\"a\" & ChrW(13) & \"\" & ChrW(10) & \"b\""));
 
+      // Exercise host object lookup directly, without starting a script engine.
+      CComObject<CScriptSiteBasic>* site = nullptr;
+      HRESULT hr = CComObject<CScriptSiteBasic>::CreateInstance(&site);
+      if (FAILED(hr) || !site)
+      {
+         failures.push_back("Failed to create script site for object lookup checks.");
+         return failures;
+      }
+
+      // CreateInstance returns refcount zero; this guard owns the site during these checks.
+      CComQIPtr<IActiveScriptSite> siteLifetime = site;
+      CComPtr<IUnknown> item;
+      if (site->LookupNamedItem(OLESTR("EventLog"), &item) != TYPE_E_ELEMENTNOTFOUND || item)
+         failures.push_back("Object lookup without a container must report a missing item.");
+
+      if (site->LookupNamedItem(OLESTR("EventLog"), nullptr) != E_POINTER)
+         failures.push_back("Object lookup must reject a null output parameter.");
+
+      item.Release();
+      if (site->LookupNamedItem(nullptr, &item) != E_POINTER || item)
+         failures.push_back("Object lookup must reject a null name.");
+
+      item.Release();
+      site->SetObjectContainer(std::make_shared<ScriptObjectContainer>());
+      if (site->LookupNamedItem(OLESTR("MissingObject"), &item) != TYPE_E_ELEMENTNOTFOUND || item)
+         failures.push_back("Unknown script objects must not report successful lookup.");
+
+      item.Release();
+      if (site->LookupNamedItem(OLESTR("EventLog"), &item) != S_OK || !item)
+         failures.push_back("EventLog must remain available through object lookup.");
+      item.Release();
+
+      CComPtr<IUnknown> requestedItem;
+      if (site->GetItemInfo(OLESTR("MissingObject"), SCRIPTINFO_IUNKNOWN, &requestedItem, nullptr) !=
+          TYPE_E_ELEMENTNOTFOUND || requestedItem)
+         failures.push_back("GetItemInfo must propagate missing-object lookup failure.");
+
       return failures;
    }
 
