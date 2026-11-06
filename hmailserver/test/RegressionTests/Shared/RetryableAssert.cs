@@ -32,12 +32,10 @@ namespace RegressionTests.Shared
          }
       }
 
-      public static void GreaterOrEqual(long expected, long actual)
+      public static void LessOrEqual(long max, long actual)
       {
-         if (actual < expected)
-         {
-            throw new Exception(string.Format("{0} is not greater or equal to {1}", actual, expected));
-         }
+         if (actual > max)
+            throw new Exception(string.Format("{0} is greater than {1}", actual, max));
       }
    }
 }

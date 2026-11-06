@@ -843,14 +843,45 @@ namespace HM
       setSpamTestResults.insert(setResult.begin(), setResult.end());
       
       int iTotalSpamScore = SpamProtection::CalculateTotalSpamScore(setSpamTestResults);
+      int iSpamDeleteThreshold = Configuration::Instance()->GetAntiSpamConfiguration().GetSpamDeleteThreshold();
+      int iSpamMarkThreshold = Configuration::Instance()->GetAntiSpamConfiguration().GetSpamMarkThreshold();
 
-      if (iTotalSpamScore >= Configuration::Instance()->GetAntiSpamConfiguration().GetSpamDeleteThreshold())
+      // A test may ask for the message to be rejected or marked as spam regardless
+      // of the spam score.
+      std::shared_ptr<SpamTestResult> rejectingResult;
+      std::shared_ptr<SpamTestResult> failedResult;
+      bool markRequested = false;
+
+      for (std::shared_ptr<SpamTestResult> testResult : setSpamTestResults)
       {
+         if (testResult->GetRejectMessage())
+            rejectingResult = testResult;
+
+         if (!failedResult && testResult->GetResult() == SpamTestResult::Fail)
+            failedResult = testResult;
+
+         if (testResult->GetMarkAsSpam())
+            markRequested = true;
+      }
+
+      if (rejectingResult || (iSpamDeleteThreshold > 0 && iTotalSpamScore >= iSpamDeleteThreshold))
+      {
+         // Increase the spam-counter
+         ServerStatus::Instance()->OnSpamMessageDetected();
+
+         // Same reason as the SMTP server gives: the rejecting test, else the first failed one.
+         std::shared_ptr<SpamTestResult> reasonResult = rejectingResult ? rejectingResult : failedResult;
+         String reason = reasonResult ? reasonResult->GetMessage() : String();
+
+         String logMessage = Formatter::Format("hMailServer SpamProtection rejected fetched email (Account: {0}, Sender: {1}, Score: {2}, Reason: {3})",
+            account_->GetName(), senderAddress, iTotalSpamScore, reason);
+         LOG_APPLICATION(logMessage);
+
          FileUtilities::DeleteFile(fileName);
          return false;
       }
       
-      bool classifiedAsSpam = iTotalSpamScore >= Configuration::Instance()->GetAntiSpamConfiguration().GetSpamMarkThreshold();
+      bool classifiedAsSpam = markRequested || (iSpamMarkThreshold > 0 && iTotalSpamScore >= iSpamMarkThreshold);
       
       if (classifiedAsSpam)
       {

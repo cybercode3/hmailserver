@@ -2,6 +2,7 @@
 // http://www.hmailserver.com
 
 using System;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
@@ -281,5 +282,39 @@ namespace RegressionTests.AntiSpam.DKIM
 
          CustomAsserts.AssertReportedError("Either the selector or private key file was not specified.");
       }
+      [Test]
+      [Description("Saving a domain with DKIM signing enabled should fail if the private key file does not exist, #688.")]
+      public void TestSaveWithMissingPrivateKeyFileFails()
+      {
+         _domain.DKIMPrivateKeyFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".key");
+         _domain.DKIMSelector = "TestSelector";
+         _domain.DKIMSignEnabled = true;
+
+         var ex = Assert.Throws<COMException>(() => _domain.Save());
+         StringAssert.Contains("private key file", ex.Message);
+      }
+
+      [Test]
+      [Description("Saving a domain with DKIM signing enabled should fail if the private key file is a directory, #688.")]
+      public void TestSaveWithPrivateKeyFileDirectoryFails()
+      {
+         _domain.DKIMPrivateKeyFile = Path.GetTempPath();
+         _domain.DKIMSelector = "TestSelector";
+         _domain.DKIMSignEnabled = true;
+
+         var ex = Assert.Throws<COMException>(() => _domain.Save());
+         StringAssert.Contains("private key file", ex.Message);
+      }
+
+      [Test]
+      [Description("Saving a domain with a missing private key file should work when DKIM signing is disabled, #688.")]
+      public void TestSaveWithMissingPrivateKeyFileWhenDisabled()
+      {
+         _domain.DKIMPrivateKeyFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".key");
+         _domain.DKIMSelector = "TestSelector";
+         _domain.DKIMSignEnabled = false;
+         _domain.Save();
+      }
+
    }
 }

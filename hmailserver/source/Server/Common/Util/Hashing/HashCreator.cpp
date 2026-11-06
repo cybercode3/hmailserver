@@ -106,13 +106,13 @@ namespace HM
       }
 
       if (!message_digest)
-         return AnsiString();
+         throw std::logic_error("Failed to calculate hash.");
 
       unsigned char results[EVP_MAX_MD_SIZE];
       unsigned int digest_length = 0;
 
       if (EVP_Digest(input, static_cast<size_t>(inputLength), results, &digest_length, message_digest, nullptr) != 1)
-         return AnsiString();
+         throw std::logic_error("Failed to calculate hash.");
 
       HM::AnsiString retVal;
       if (encoding == hex)

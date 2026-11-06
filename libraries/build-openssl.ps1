@@ -1,6 +1,6 @@
 <# Builds OpenSSL 3.5.x into the layout used by hMailServer. #>
 [CmdletBinding()]
-param([Parameter(Mandatory=$false)][ValidatePattern('^3\.5\.\d+$')][string]$Version='3.5.8')
+param([Parameter(Mandatory=$false)][ValidatePattern('^3\.5\.\d+$')][string]$Version='3.5.9')
 
 $ErrorActionPreference='Stop'
 $PSNativeCommandUseErrorActionPreference=$false
@@ -23,8 +23,9 @@ $env:CFLAGS='-DOPENSSL_TLS_SECURITY_LEVEL=0'
 
 Push-Location $src
 try {
+    # Keep deprecated exports for libpq and libmariadb; hMailServer disables their use.
     Invoke-BuildStep "Configuring OpenSSL $Version" {
-        perl Configure no-asm VC-WIN64A "--prefix=$out" "--openssldir=$out" -D_WIN32_WINNT=0x600 --api=1.1.1 no-deprecated
+        perl Configure no-asm VC-WIN64A "--prefix=$out" "--openssldir=$out" -D_WIN32_WINNT=0x600
     }
     if ($LASTEXITCODE -ne 0) { throw "OpenSSL Configure failed: $LASTEXITCODE" }
     Invoke-BuildStep 'Cleaning OpenSSL build' { nmake clean }

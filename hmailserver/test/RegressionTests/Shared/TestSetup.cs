@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Net.NetworkInformation;
@@ -67,7 +68,10 @@ namespace RegressionTests.Shared
       {
          bool restartRequired = false;
 
-         Domain domain = SingletonProvider<TestSetup>.Instance.AddTestDomain();
+         // A delivery left running by the previous test fails if its account is deleted below.
+         WaitForDeliveriesInProgress();
+
+         var domain = SingletonProvider<TestSetup>.Instance.AddTestDomain();
 
          _settings.TCPIPPorts.SetDefault();
 
@@ -384,6 +388,19 @@ namespace RegressionTests.Shared
          application.SubmitEMail();
       }
 
+      private static void WaitForDeliveriesInProgress()
+      {
+         var status = SingletonProvider<TestSetup>.Instance.GetApp().Status;
+
+         // Locked messages are being delivered. Messages waiting for a retry are not waited for.
+         Poll.Until(TimeSpan.FromSeconds(20), () =>
+            !status.UndeliveredMessages.Split('\n').Any(line =>
+            {
+               var info = line.Split('\t');
+               return info.Length > 6 && info[6] == "1";
+            }));
+      }
+
       public static int GetNumberOfMessagesInDeliveryQueue()
       {
          Application application = SingletonProvider<TestSetup>.Instance.GetApp();
@@ -625,6 +642,19 @@ namespace RegressionTests.Shared
       }
 
       
+      public const int LargeBodyLineCount = 900000;
+      public const string LargeBodyLine = "This line is part of a large message body. 0123456789abcdefghijklmnopqrstuvwxyz0123456789ABCD\r\n";
+
+      // Creates a body of about 85MB, above the 80MB where the server stops parsing the body.
+      public static string CreateLargeMessageBody()
+      {
+         var body = new StringBuilder(LargeBodyLine.Length * LargeBodyLineCount);
+         for (var i = 0; i < LargeBodyLineCount; i++)
+            body.Append(LargeBodyLine);
+
+         return body.ToString();
+      }
+
       // Files that the server itself opens cannot live in the temp directory of the account
       // running the tests, since the service account has no access to another user's profile.
       // The public directory is reachable by both.

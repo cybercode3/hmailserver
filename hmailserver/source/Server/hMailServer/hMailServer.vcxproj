@@ -73,8 +73,8 @@ EXIT 0
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(hMailServerLibs)\boost_1_92_0;..\..\..\..\Libraries\mssqlce3.5;$(hMailServerLibs)\openssl-3.5.8\out64\include;$(hMailServerLibs)\postgresql-15.19\src\interfaces\libpq;$(BOOST_INCLUDE_PATH);$(OPENSSL_INCLUDE_PATH);$(ProjectDir);$(hMailServerLibs)\postgresql-15.19\src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;UNICODE;_UNICODE;BOOST_DATE_TIME_NO_LIB;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(hMailServerLibs)\boost_1_92_0;..\..\..\..\Libraries\mssqlce3.5;$(hMailServerLibs)\openssl-3.5.9\out64\include;$(hMailServerLibs)\postgresql-15.19\src\interfaces\libpq;$(BOOST_INCLUDE_PATH);$(OPENSSL_INCLUDE_PATH);$(ProjectDir);$(hMailServerLibs)\postgresql-15.19\src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;UNICODE;_UNICODE;BOOST_DATE_TIME_NO_LIB;_SCL_SECURE_NO_WARNINGS;OPENSSL_API_COMPAT=30500;OPENSSL_NO_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -95,7 +95,7 @@ EXIT 0
       <AdditionalDependencies>Adsiid.lib;activeds.lib;IPHlpAPI.lib;Dnsapi.lib;Ws2_32.lib;libpq.lib;libcrypto.lib;libssl.lib;crypt32.lib;Secur32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ShowProgress>NotSet</ShowProgress>
       <OutputFile>$(OutDir)hMailServer.exe</OutputFile>
-      <AdditionalLibraryDirectories>$(hMailServerLibs)\boost_1_92_0\stage\lib;$(hMailServerLibs)\openssl-3.5.8\out64\lib;$(hMailServerLibs)\postgresql-15.19\Release\libpq;$(BOOST_LIBS_PATH);$(OPENSSL_LIBS_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(hMailServerLibs)\boost_1_92_0\stage\lib;$(hMailServerLibs)\openssl-3.5.9\out64\lib;$(hMailServerLibs)\postgresql-15.19\Release\libpq;$(BOOST_LIBS_PATH);$(OPENSSL_LIBS_PATH);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AssemblyDebug>true</AssemblyDebug>
@@ -127,7 +127,7 @@ EXIT 0
     </Midl>
     <ClCompile>
       <AdditionalIncludeDirectories>$(hMailServerLibs)\boost_1_92_0;..\..\..\..\Libraries\mssqlce3.5;$(hMailServerLibs)\openssl-3.5.9\out64\include;$(hMailServerLibs)\postgresql-15.19\src\interfaces\libpq;$(BOOST_INCLUDE_PATH);$(OPENSSL_INCLUDE_PATH);$(ProjectDir);$(hMailServerLibs)\postgresql-15.19\src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;UNICODE;_UNICODE;NDEBUG;BOOST_DATE_TIME_NO_LIB;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;UNICODE;_UNICODE;NDEBUG;BOOST_DATE_TIME_NO_LIB;_SCL_SECURE_NO_WARNINGS;OPENSSL_API_COMPAT=30500;OPENSSL_NO_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -374,6 +374,7 @@ EXIT 0
     <ClCompile Include="..\Common\SQL\Prerequisites\PreReqNoDuplicateFolders.cpp" />
     <ClCompile Include="..\Common\SQL\Prerequisites\PrerequisiteList.cpp" />
     <ClCompile Include="..\Common\SQL\SQLCEConnection.cpp" />
+    <ClCompile Include="..\Common\SQL\SQLCEFlusher.cpp" />
     <ClCompile Include="..\Common\SQL\SQLCERecordset.cpp" />
     <ClCompile Include="..\Common\SQL\SQLCommand.cpp" />
     <ClCompile Include="..\Common\SQL\SQLParameter.cpp" />
@@ -890,6 +891,7 @@ EXIT 0
     <ClInclude Include="..\Common\SQL\Prerequisites\PreReqNoDuplicateFolders.h" />
     <ClInclude Include="..\Common\SQL\Prerequisites\PrerequisiteList.h" />
     <ClInclude Include="..\Common\SQL\SQLCEConnection.h" />
+    <ClInclude Include="..\Common\SQL\SQLCEFlusher.h" />
     <ClInclude Include="..\Common\SQL\SQLCERecordset.h" />
     <ClInclude Include="..\Common\SQL\SQLCommand.h" />
     <ClInclude Include="..\Common\SQL\SQLParameter.h" />
