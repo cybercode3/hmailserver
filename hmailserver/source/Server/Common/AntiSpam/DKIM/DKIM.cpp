@@ -336,13 +336,14 @@ namespace HM
 
       if (testMode)
       {
-         LOG_DEBUG("DKIM: Domain is in test mode. Results of this signature test won't have any effect.");
+         LOG_DEBUG("DKIM: Domain is in test mode. Verification failures will be treated as unsigned mail.");
       }
 
       if (!ValidateBodyHash_(fileName, signatureParams, bodyCanonicalization))
       {
          LOG_DEBUG("DKIM: Validation of body hash failed.");
-         return testMode ? Pass : PermFail;
+         // Testing mode suppresses failure penalties, not authentication checks.
+         return testMode ? Neutral : PermFail;
       }
 
       AnsiString tagH = signatureParams.GetValue("h");
@@ -367,7 +368,8 @@ namespace HM
 
       Result result = VerifyHeaderHash_(canonicalizedHeader, tagA, tagB, publicKeyString);
 
-      return testMode ? Pass : result;
+      // Only a verified signature may contribute a passing domain to DMARC.
+      return testMode && result == PermFail ? Neutral : result;
    }
 
    DKIM::Result
